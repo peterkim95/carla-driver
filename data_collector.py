@@ -254,8 +254,8 @@ def main():
     logging.info('listening to server %s:%s', args.host, args.port)
 
     current_datetime = get_current_datetime()
-    args.out_filename_format = '_out/' + current_datetime + '/episode_{:0>4d}/{:s}/{:0>6d}'
-    args.out_labelname_format = '_out/' + current_datetime + '/episode_{:0>4d}/label.pickle'
+    args.out_filename_format = 'data/' + current_datetime + '/episode_{:0>4d}/{:s}/{:0>6d}'
+    args.out_labelname_format = 'data/' + current_datetime + '/episode_{:0>4d}/label.pickle'
 
     while True:
         try:
