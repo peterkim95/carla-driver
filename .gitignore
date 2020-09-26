@@ -1,0 +1,14 @@
+# Mac
+.DS_Store
+
+# Intellij
+.idea/
+
+# Data
+data/
+
+# Python
+__pycache__/
+
+# Ctags
+tags
