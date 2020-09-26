@@ -199,7 +199,7 @@ def print_measurements(measurements):
 
 
 def get_current_datetime():
-    return datetime.now().strftime('%Y-%d-%m_%H:%M:%S')
+    return datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
 
 def main():
