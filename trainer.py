@@ -4,9 +4,11 @@ import torch.optim as optim
 
 from model import Net
 from dataset import generate_labels, generate_partition, Dataset
-
+from utils import get_args
 
 def main():
+    args = get_args()
+
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda:0' if use_cuda else 'cpu')
     torch.backends.cudnn.benchmark = True
@@ -16,10 +18,10 @@ def main():
 
     # Generators
     training_set = Dataset(partition['train'], labels)
-    training_generator = torch.utils.data.DataLoader(training_set, batch_size=32, shuffle=True, num_workers=6)
+    training_generator = torch.utils.data.DataLoader(training_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     validation_set = Dataset(partition['validation'], labels)
-    validation_generator = torch.utils.data.DataLoader(validation_set, batch_size=32, shuffle=True, num_workers=6)
+    validation_generator = torch.utils.data.DataLoader(validation_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     # Init neural net
     net = Net()
@@ -28,9 +30,8 @@ def main():
     criterion = nn.MSELoss()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-    max_epochs = 2
 
-    for epoch in range(max_epochs):
+    for epoch in range(args.epochs):
         training_loss = 0.0
         for i, (local_batch, local_labels) in enumerate(training_generator):
             optimizer.zero_grad()
