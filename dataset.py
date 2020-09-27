@@ -38,7 +38,7 @@ def generate_partition():
 
     sample_size = len(ids)
     i = round(sample_size * 0.8)
-    return {'train': ids[:i], 'validation': ids[i:]}
+    return {'train': ids[:i], 'val': ids[i:]}
 
 
 def generate_labels():

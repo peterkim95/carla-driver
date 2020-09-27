@@ -1,8 +1,11 @@
 # Mac
 .DS_Store
 
-# Intellij
+# IntelliJ
 .idea/
+
+# Tensorboard
+runs/
 
 # Data
 data/
