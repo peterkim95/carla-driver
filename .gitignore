@@ -7,6 +7,9 @@
 # Tensorboard
 runs/
 
+# Model checkpoint
+checkpoints/
+
 # Data
 data/
 
