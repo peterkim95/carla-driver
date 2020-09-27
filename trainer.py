@@ -13,6 +13,8 @@ def main():
     device = torch.device('cuda:0' if use_cuda else 'cpu')
     torch.backends.cudnn.benchmark = True
 
+    print(f'device: {device}')
+
     partition = generate_partition() # e.g. {'train': ['id-1', 'id-2', 'id-3'], 'validation': ['id-4']}
     labels = generate_labels() # load from episode label dict
 
@@ -25,6 +27,7 @@ def main():
 
     # Init neural net
     net = Net()
+    net.to(device)
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
@@ -34,6 +37,8 @@ def main():
     for epoch in range(args.epochs):
         training_loss = 0.0
         for i, (local_batch, local_labels) in enumerate(training_generator):
+            local_batch, local_labels = local_batch.to(device), local_labels.to(device)
+
             optimizer.zero_grad()
 
             outputs = net(local_batch)
@@ -49,7 +54,7 @@ def main():
         validation_loss = 0.0
         with torch.set_grad_enabled(False):
             for local_batch, local_labels in validation_generator:
-                # local_batch, local_labels = local_batch.to(device), local_labels.to(device)
+                local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
                 outputs = net(local_batch)
                 loss = criterion(outputs, local_labels)
