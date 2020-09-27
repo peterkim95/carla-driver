@@ -1,8 +1,14 @@
 # Mac
 .DS_Store
 
-# Intellij
+# IntelliJ
 .idea/
+
+# Tensorboard
+runs/
+
+# Model checkpoint
+checkpoints/
 
 # Data
 data/
