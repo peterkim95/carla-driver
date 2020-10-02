@@ -43,7 +43,7 @@ def main():
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     # Init Tensorboard writer
     writer = SummaryWriter()
