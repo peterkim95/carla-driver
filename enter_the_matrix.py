@@ -55,6 +55,8 @@ try:
 except ImportError:
     raise RuntimeError('cannot import numpy, make sure numpy package is installed')
 
+from l5 import L5Agent
+
 from carla import image_converter
 from carla import sensor
 from carla.client import make_carla_client, VehicleControl
@@ -132,8 +134,10 @@ class Timer(object):
 
 
 class CarlaGame(object):
-    def __init__(self, carla_client, args):
+    def __init__(self, carla_client, agent, args):
         self.client = carla_client
+        self.agent = agent
+
         self._carla_settings = make_carla_settings(args)
         self._timer = None
         self._display = None
@@ -224,7 +228,12 @@ class CarlaGame(object):
 
             self._timer.lap()
 
-        control = self._get_keyboard_control(pygame.key.get_pressed())
+        # No longer rely on manual keyboard input
+        # control = self._get_keyboard_control(pygame.key.get_pressed())
+        # Get control data from autnomous agent
+        directions, target = None, None # TODO: Use planner to get these
+        control = self.agent.run_step(measurements, sensor_data, directions, target)
+
         # Set the player position
         if self._city_name is not None:
             self._position = self._map.convert_to_pixel([
@@ -417,7 +426,8 @@ def main():
         try:
 
             with make_carla_client(args.host, args.port) as client:
-                game = CarlaGame(client, args)
+                agent = L5Agent()
+                game = CarlaGame(client, agent, args)
                 game.execute()
                 break
 

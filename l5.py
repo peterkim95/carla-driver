@@ -17,11 +17,11 @@ class L5Agent(Agent):
         Target Position: The position and orientation of the target.
         With all this information, the run_step function is expected to return a vehicle control message, containing: steering value, throttle value, brake value, etc.
         """
-        print(measurements.player_measurements.autopilot_control)
-        print(directions) # TODO: Can we use this directly? Or better to dig deeper into planner?
+        # print(measurements.player_measurements.autopilot_control)
+        # print(directions) # TODO: Can we use this directly? Or better to dig deeper into planner?
         control = VehicleControl() # TODO: Is this the autopilot control?
         
-        print(control)
+        # print(control)
 
         control.throttle = 0.9
 
