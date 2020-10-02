@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
 from model import Net
+from pilotnet import PilotNet
 from dataset import generate_labels, generate_partition, DrivingDataset
 from util import get_args, save_checkpoint, makedirs
 
@@ -23,7 +24,11 @@ def main():
     labels = generate_labels() # load from episode label dict
 
     # Define transformations
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+    transform = transforms.Compose([
+        transforms.Resize((200, 66)),
+        transforms.ToTensor(), 
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
 
     # Set data generators
     train_set = DrivingDataset(partition['train'], labels, transform=transform)
@@ -33,7 +38,7 @@ def main():
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     # Init neural net
-    net = Net()
+    net = PilotNet()
     net.to(device)
 
     # Define loss function and optimizer
