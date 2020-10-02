@@ -6,6 +6,7 @@ _benchmarks_results/
 
 # IntelliJ
 .idea/
+.run/
 
 # Tensorboard
 runs/
@@ -21,3 +22,6 @@ __pycache__/
 
 # Ctags
 tags
+
+# Notes
+notes
