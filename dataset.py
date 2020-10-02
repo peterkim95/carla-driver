@@ -2,14 +2,16 @@ import os
 import pickle
 
 import torch
+from torch.utils.data import Dataset
 import numpy as np
 from PIL import Image
 
 
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, list_IDs, labels):
+class DrivingDataset(Dataset):
+    def __init__(self, list_IDs, labels, transform=None):
         self.labels = labels
         self.list_IDs = list_IDs
+        self.transform = transform
 
     def __len__(self):
         return len(self.list_IDs)
@@ -24,7 +26,8 @@ class Dataset(torch.utils.data.Dataset):
 
     def preprocess_x(self, ID):
         image = Image.open(f'data/2020-23-09_07:52:54/episode_0000/CameraRGB/{ID}.png')
-        return torch.from_numpy(np.asarray(image).copy().astype('float32') / 255.0).permute([2,1,0]) # (3, 800, 600)
+        if self.transform:
+            return self.transform(image)
 
     def preprocess_y(self, ID):
         y = self.labels[ID]
