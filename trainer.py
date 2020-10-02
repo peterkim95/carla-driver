@@ -49,7 +49,7 @@ def main():
     writer = SummaryWriter()
 
     is_best = True
-    best_val_loss = 2 ** 1000
+    best_val_loss = float('inf')
     makedirs(args.checkpoints_path)
 
     # Perform dark magic
@@ -84,12 +84,13 @@ def main():
         train_loss = train_loss / len(train_loader)
         val_loss = val_loss / len(val_loader)
         print(f'Epoch {epoch + 1}: train loss = {train_loss:.3f}, val loss = {val_loss:.3f}')
-        
+
         # Save best model every epoch
         is_best = val_loss < best_val_loss
-        best_val_loss = min(val_loss, best_val_loss)
         if is_best:
+            print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
             save_checkpoint(net.state_dict())
+            best_val_loss = min(val_loss, best_val_loss)
 
         # Log to Tensorboard
         writer.add_scalar('Loss/train', train_loss, epoch)
