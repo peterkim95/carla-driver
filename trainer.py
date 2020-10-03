@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from model import Net
 from pilotnet import PilotNet
-from dataset import generate_labels, generate_partition, DrivingDataset
+from dataset import DrivingDataset
 from util import get_args, save_checkpoint, makedirs
 
 
@@ -19,10 +19,6 @@ def main():
 
     print(f'device: {device}')
 
-    # TODO: How to handle multi-epsiode data reading?
-    partition = generate_partition() # e.g. {'train': ['id-1', 'id-2', 'id-3'], 'val': ['id-4']}
-    labels = generate_labels() # load from episode label dict
-
     # Define transformations
     transform = transforms.Compose([
         transforms.Resize((200, 66)),
@@ -31,10 +27,10 @@ def main():
     ])
 
     # Set data generators
-    train_set = DrivingDataset(partition['train'], labels, transform=transform)
+    train_set = DrivingDataset(args.train, transform=transform)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
-    val_set = DrivingDataset(partition['val'], labels, transform=transform)
+    val_set = DrivingDataset(args.val, transform=transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     # Init neural net

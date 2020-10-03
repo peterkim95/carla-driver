@@ -18,10 +18,13 @@ def makedirs(name):
 
 def get_args():
     parser = ArgumentParser(description='trainer')
+
     parser.add_argument('--epochs', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=32)
     
     parser.add_argument('--checkpoints_path', type=str, default='checkpoints')
+    parser.add_argument('--train', type=str)
+    parser.add_argument('--val', type=str)
 
     args = parser.parse_args()
     return args
