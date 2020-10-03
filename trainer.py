@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
 from model import Net
-from dataset import generate_labels, generate_partition, Dataset
-from utils import get_args, save_checkpoint, makedirs
+from pilotnet import PilotNet
+from dataset import generate_labels, generate_partition, DrivingDataset
+from util import get_args, save_checkpoint, makedirs
 
 
 def main():
@@ -21,26 +23,33 @@ def main():
     partition = generate_partition() # e.g. {'train': ['id-1', 'id-2', 'id-3'], 'val': ['id-4']}
     labels = generate_labels() # load from episode label dict
 
+    # Define transformations
+    transform = transforms.Compose([
+        transforms.Resize((200, 66)),
+        transforms.ToTensor(), 
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+
     # Set data generators
-    train_set = Dataset(partition['train'], labels)
+    train_set = DrivingDataset(partition['train'], labels, transform=transform)
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
-    val_set = Dataset(partition['val'], labels)
+    val_set = DrivingDataset(partition['val'], labels, transform=transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
 
     # Init neural net
-    net = Net()
+    net = PilotNet()
     net.to(device)
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     # Init Tensorboard writer
     writer = SummaryWriter()
 
     is_best = True
-    best_val_loss = 2 ** 1000
+    best_val_loss = float('inf')
     makedirs(args.checkpoints_path)
 
     # Perform dark magic
@@ -75,12 +84,13 @@ def main():
         train_loss = train_loss / len(train_loader)
         val_loss = val_loss / len(val_loader)
         print(f'Epoch {epoch + 1}: train loss = {train_loss:.3f}, val loss = {val_loss:.3f}')
-        
+
         # Save best model every epoch
         is_best = val_loss < best_val_loss
-        best_val_loss = min(val_loss, best_val_loss)
         if is_best:
+            print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
             save_checkpoint(net.state_dict())
+            best_val_loss = min(val_loss, best_val_loss)
 
         # Log to Tensorboard
         writer.add_scalar('Loss/train', train_loss, epoch)

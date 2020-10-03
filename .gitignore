@@ -1,5 +1,6 @@
-# Benchmark results
+# Carla python client artifacts
 _benchmarks_results/
+_out/
 
 # Mac
 .DS_Store
