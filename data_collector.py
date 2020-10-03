@@ -119,6 +119,9 @@ def run_carla_client(args):
                 # Read the data produced by the server this frame.
                 measurements, sensor_data = client.read_data()
 
+                # Get autopilot control
+                control = measurements.player_measurements.autopilot_control
+
                 # Print some of the measurements.
                 print_measurements(measurements)
 
@@ -127,6 +130,10 @@ def run_carla_client(args):
                     for name, measurement in sensor_data.items():
                         filename = args.out_filename_format.format(episode, name, frame)
                         measurement.save_to_disk(filename)
+
+                        # Save label
+                        label_key = 'episode_{:0>4d}/{:s}/{:0>6d}'.format(episode, name, frame)
+                        episode_label[label_key] = generate_control_dict(control)
 
                 # We can access the encoded data of a given image as numpy
                 # array using its "data" property. For instance, to get the
@@ -141,7 +148,7 @@ def run_carla_client(args):
                 # simulation until we send this control.
 
                 if not args.autopilot:
-
+                    print('sending dummy control')
                     client.send_control(
                         steer=random.uniform(-1.0, 1.0),
                         throttle=0.5,
@@ -157,12 +164,9 @@ def run_carla_client(args):
                     # server. We can modify it if wanted, here for instance we
                     # will add some noise to the steer.
 
-                    control = measurements.player_measurements.autopilot_control
-
-                    # Set ground truth for frames
-                    episode_label['{:0>6d}'.format(frame)] = generate_control_dict(control)
-
-                    control.steer += random.uniform(-0.1, 0.1)
+                    # control = measurements.player_measurements.autopilot_control
+                    # TODO: Does random steering jitter add human-ness?
+                    # control.steer += random.uniform(-0.1, 0.1)
                     client.send_control(control)
 
             # Save episode label dict.
