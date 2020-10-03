@@ -67,11 +67,13 @@ def run_carla_client(args):
                 settings.add_sensor(camera0)
 
                 # Let's add another camera producing ground-truth depth.
-                camera1 = Camera('CameraDepth', PostProcessing='Depth')
-                camera1.set_image_size(800, 600)
-                camera1.set_position(0.30, 0, 1.30)
-                settings.add_sensor(camera1)
+                if args.depth:
+                    camera1 = Camera('CameraDepth', PostProcessing='Depth')
+                    camera1.set_image_size(800, 600)
+                    camera1.set_position(0.30, 0, 1.30)
+                    settings.add_sensor(camera1)
 
+                # And maybe a crutch
                 if args.lidar:
                     lidar = Lidar('Lidar32')
                     lidar.set_position(0, 0, 2.50)
@@ -226,6 +228,10 @@ def main():
         '-a', '--autopilot',
         action='store_true',
         help='enable autopilot')
+    argparser.add_argument(
+        '-d', '--depth',
+        action='store_true',
+        help='enable depth camera')
     argparser.add_argument(
         '-l', '--lidar',
         action='store_true',
