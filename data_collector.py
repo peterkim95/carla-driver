@@ -25,9 +25,8 @@ from carla.util import print_over_same_line
 
 
 def run_carla_client(args):
-    # Here we will run 3 episodes with 300 frames each.
-    number_of_episodes = 3
-    frames_per_episode = 300
+    number_of_episodes = args.episodes
+    frames_per_episode = args.frames
 
     # We assume the CARLA server is already waiting for a client to connect at
     # host:port. To create a connection we can use the `make_carla_client`
@@ -248,7 +247,18 @@ def main():
         dest='settings_filepath',
         default=None,
         help='Path to a "CarlaSettings.ini" file')
-
+    argparser.add_argument(
+        '-e', '--episodes',
+        default=3,
+        type=int,
+        help='# of epsiodes to run'
+    )
+    argparser.add_argument(
+        '-f', '--frames',
+        default=300,
+        type=int,
+        help='# of frames per episode'
+    )
     args = argparser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
