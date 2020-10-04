@@ -4,7 +4,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 
-from model import Net
+from tutorialnet import TutorialNet
 from pilotnet import PilotNet
 from dataset import DrivingDataset
 from util import get_args, save_checkpoint, makedirs
@@ -15,7 +15,8 @@ def main():
 
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda:0' if use_cuda else 'cpu')
-    torch.backends.cudnn.benchmark = True
+    # TODO: when input size doesn't vary, cudnn finds best algorithm?
+    torch.backends.cudnn.benchmark = True 
 
     print(f'device: {device}')
 
@@ -32,6 +33,7 @@ def main():
 
     val_set = DrivingDataset(args.val, transform=transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    print(f'# train examples: {len(train_set)}, # val examples: {len(val_set)}')
 
     # Init neural net
     net = PilotNet()
