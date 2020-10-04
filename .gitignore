@@ -2,6 +2,9 @@
 _benchmarks_results/
 _out/
 
+# Vim
+*.swp
+
 # Mac
 .DS_Store
 

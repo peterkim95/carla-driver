@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from tutorialnet import TutorialNet
 from pilotnet import PilotNet
@@ -41,7 +42,7 @@ def main():
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
     # Init Tensorboard writer
     writer = SummaryWriter()
@@ -50,11 +51,17 @@ def main():
     best_val_loss = float('inf')
     makedirs(args.checkpoints_path)
 
+    # TODO: Look at keras progress bar code to get more inspiration
+    progress_bar_format = '{l_bar}{bar:10}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]{bar:-10b}' 
+
     # Perform dark magic
     for epoch in range(args.epochs):
+        print(f'Epoch {epoch + 1}/{args.epochs}')
+
         # Train
         train_loss = 0.0
-        for i, (local_batch, local_labels) in enumerate(train_loader):
+        train_loop = tqdm(enumerate(train_loader), total=len(train_loader), unit='step', bar_format=progress_bar_format)
+        for i, (local_batch, local_labels) in train_loop:
             local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
             optimizer.zero_grad()
@@ -64,24 +71,23 @@ def main():
             loss.backward()
             optimizer.step()
 
-            # print stats
             train_loss += loss.item()
-            # if i % 10 == 9:
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, loss.item() / (i + 1)))
+
+            # Update progress bar
+            train_loop.set_postfix(loss=train_loss / (i + 1))
 
         # Validate
         val_loss = 0.0
+        val_loop = tqdm(enumerate(val_loader), total=len(val_loader), unit='step', bar_format=progress_bar_format)
         with torch.set_grad_enabled(False):
-            for local_batch, local_labels in val_loader:
+            for i, (local_batch, local_labels) in val_loop:
                 local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
                 outputs = net(local_batch)
                 loss = criterion(outputs, local_labels)
                 val_loss += loss.item()
 
-        train_loss = train_loss / len(train_loader)
-        val_loss = val_loss / len(val_loader)
-        print(f'Epoch {epoch + 1}: train loss = {train_loss:.3f}, val loss = {val_loss:.3f}')
+                val_loop.set_postfix(val_loss=val_loss / (i + 1))
 
         # Save best model every epoch
         is_best = val_loss < best_val_loss
