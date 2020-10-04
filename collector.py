@@ -18,6 +18,8 @@ import random
 import time
 from datetime import datetime
 
+import numpy as np
+
 from carla.client import make_carla_client
 from carla.sensor import Camera, Lidar
 from carla.settings import CarlaSettings
@@ -298,18 +300,19 @@ def main():
             logging.error(error)
             time.sleep(1)
 
-def split_data(data_path, max_epsiodes, split_ratio=0.8):
+def split_data(data_path, max_episodes, split_ratio=0.8):
     makedirs(f'{data_path}/train')
     makedirs(f'{data_path}/val')
     
     episodes = np.arange(max_episodes)
     np.random.shuffle(episodes)
-    idx = int(len(episodes) * split_ratio)
+    idx = int(max_episodes * split_ratio)
     train, val = episodes[:idx], episodes[idx:]
+
     for e in train:
         shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
     for e in val:
-        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
+        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/val/episode_{e:0>4d}')
 
 if __name__ == '__main__':
 
