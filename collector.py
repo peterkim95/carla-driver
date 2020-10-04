@@ -264,6 +264,12 @@ def main():
         default=None,
         help='Path to a "CarlaSettings.ini" file')
     argparser.add_argument(
+        '-r', '--split_ratio',
+        default=0.8,
+        type=float,
+        help='train val split ratio'
+    )
+    argparser.add_argument(
         '-e', '--episodes',
         default=3,
         type=int,
@@ -292,7 +298,7 @@ def main():
             run_carla_client(args)
             print('Finished simulation.')
 
-            split_data(f'data/{current_datetime}', args.episodes)
+            split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
             print('Done.')
             return
 
@@ -300,7 +306,7 @@ def main():
             logging.error(error)
             time.sleep(1)
 
-def split_data(data_path, max_episodes, split_ratio=0.8):
+def split_data(data_path, max_episodes, split_ratio):
     makedirs(f'{data_path}/train')
     makedirs(f'{data_path}/val')
     
