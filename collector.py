@@ -10,6 +10,7 @@
 
 from __future__ import print_function
 
+import shutil
 import argparse
 import pickle
 import logging
@@ -22,6 +23,8 @@ from carla.sensor import Camera, Lidar
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
+
+from util import makedirs
 
 
 def run_carla_client(args):
@@ -121,6 +124,7 @@ def run_carla_client(args):
 
                 # Get autopilot control
                 control = measurements.player_measurements.autopilot_control
+                control.steer += random.uniform(-0.1, 0.1)
 
                 # Print some of the measurements.
                 print_measurements(measurements)
@@ -284,7 +288,9 @@ def main():
         try:
 
             run_carla_client(args)
+            print('Finished simulation.')
 
+            split_data(f'data/{current_datetime}', args.episodes)
             print('Done.')
             return
 
@@ -292,6 +298,18 @@ def main():
             logging.error(error)
             time.sleep(1)
 
+def split_data(data_path, max_epsiodes, split_ratio=0.8):
+    makedirs(f'{data_path}/train')
+    makedirs(f'{data_path}/val')
+    
+    episodes = np.arange(max_episodes)
+    np.random.shuffle(episodes)
+    idx = int(len(episodes) * split_ratio)
+    train, val = episodes[:idx], episodes[idx:]
+    for e in train:
+        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
+    for e in val:
+        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
 
 if __name__ == '__main__':
 
