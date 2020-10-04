@@ -30,10 +30,10 @@ def main():
 
     # Set data generators
     train_set = DrivingDataset(args.train, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     val_set = DrivingDataset(args.val, transform=transform)
-    val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     print(f'# train examples: {len(train_set)}, # val examples: {len(val_set)}')
 
     # Init neural net
