@@ -10,6 +10,7 @@
 
 from __future__ import print_function
 
+import shutil
 import argparse
 import pickle
 import logging
@@ -17,17 +18,20 @@ import random
 import time
 from datetime import datetime
 
+import numpy as np
+
 from carla.client import make_carla_client
 from carla.sensor import Camera, Lidar
 from carla.settings import CarlaSettings
 from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
 
+from util import makedirs
+
 
 def run_carla_client(args):
-    # Here we will run 3 episodes with 300 frames each.
-    number_of_episodes = 3
-    frames_per_episode = 300
+    number_of_episodes = args.episodes
+    frames_per_episode = args.frames
 
     # We assume the CARLA server is already waiting for a client to connect at
     # host:port. To create a connection we can use the `make_carla_client`
@@ -68,11 +72,13 @@ def run_carla_client(args):
                 settings.add_sensor(camera0)
 
                 # Let's add another camera producing ground-truth depth.
-                camera1 = Camera('CameraDepth', PostProcessing='Depth')
-                camera1.set_image_size(800, 600)
-                camera1.set_position(0.30, 0, 1.30)
-                settings.add_sensor(camera1)
+                if args.depth:
+                    camera1 = Camera('CameraDepth', PostProcessing='Depth')
+                    camera1.set_image_size(800, 600)
+                    camera1.set_position(0.30, 0, 1.30)
+                    settings.add_sensor(camera1)
 
+                # And maybe a crutch
                 if args.lidar:
                     lidar = Lidar('Lidar32')
                     lidar.set_position(0, 0, 2.50)
@@ -118,6 +124,10 @@ def run_carla_client(args):
                 # Read the data produced by the server this frame.
                 measurements, sensor_data = client.read_data()
 
+                # Get autopilot control
+                control = measurements.player_measurements.autopilot_control
+                control.steer += random.uniform(-0.1, 0.1)
+
                 # Print some of the measurements.
                 print_measurements(measurements)
 
@@ -126,6 +136,10 @@ def run_carla_client(args):
                     for name, measurement in sensor_data.items():
                         filename = args.out_filename_format.format(episode, name, frame)
                         measurement.save_to_disk(filename)
+
+                        # Save label
+                        label_key = 'episode_{:0>4d}/{:s}/{:0>6d}'.format(episode, name, frame)
+                        episode_label[label_key] = generate_control_dict(control)
 
                 # We can access the encoded data of a given image as numpy
                 # array using its "data" property. For instance, to get the
@@ -140,7 +154,7 @@ def run_carla_client(args):
                 # simulation until we send this control.
 
                 if not args.autopilot:
-
+                    print('sending dummy control')
                     client.send_control(
                         steer=random.uniform(-1.0, 1.0),
                         throttle=0.5,
@@ -156,12 +170,9 @@ def run_carla_client(args):
                     # server. We can modify it if wanted, here for instance we
                     # will add some noise to the steer.
 
-                    control = measurements.player_measurements.autopilot_control
-
-                    # Set ground truth for frames
-                    episode_label['{:0>6d}'.format(frame)] = generate_control_dict(control)
-
-                    control.steer += random.uniform(-0.1, 0.1)
+                    # control = measurements.player_measurements.autopilot_control
+                    # TODO: Does random steering jitter add human-ness?
+                    # control.steer += random.uniform(-0.1, 0.1)
                     client.send_control(control)
 
             # Save episode label dict.
@@ -228,6 +239,10 @@ def main():
         action='store_true',
         help='enable autopilot')
     argparser.add_argument(
+        '-d', '--depth',
+        action='store_true',
+        help='enable depth camera')
+    argparser.add_argument(
         '-l', '--lidar',
         action='store_true',
         help='enable Lidar')
@@ -248,7 +263,24 @@ def main():
         dest='settings_filepath',
         default=None,
         help='Path to a "CarlaSettings.ini" file')
-
+    argparser.add_argument(
+        '-r', '--split_ratio',
+        default=0.8,
+        type=float,
+        help='train val split ratio'
+    )
+    argparser.add_argument(
+        '-e', '--episodes',
+        default=3,
+        type=int,
+        help='# of epsiodes to run'
+    )
+    argparser.add_argument(
+        '-f', '--frames',
+        default=300,
+        type=int,
+        help='# of frames per episode'
+    )
     args = argparser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -264,7 +296,9 @@ def main():
         try:
 
             run_carla_client(args)
+            print('Finished simulation.')
 
+            split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
             print('Done.')
             return
 
@@ -272,6 +306,19 @@ def main():
             logging.error(error)
             time.sleep(1)
 
+def split_data(data_path, max_episodes, split_ratio):
+    makedirs(f'{data_path}/train')
+    makedirs(f'{data_path}/val')
+    
+    episodes = np.arange(max_episodes)
+    np.random.shuffle(episodes)
+    idx = int(max_episodes * split_ratio)
+    train, val = episodes[:idx], episodes[idx:]
+
+    for e in train:
+        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
+    for e in val:
+        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/val/episode_{e:0>4d}')
 
 if __name__ == '__main__':
 

@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
-from model import Net
+from tutorialnet import TutorialNet
 from pilotnet import PilotNet
-from dataset import generate_labels, generate_partition, DrivingDataset
+from dataset import DrivingDataset
 from util import get_args, save_checkpoint, makedirs
 
 
@@ -15,13 +16,10 @@ def main():
 
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda:0' if use_cuda else 'cpu')
-    torch.backends.cudnn.benchmark = True
+    # TODO: when input size doesn't vary, cudnn finds best algorithm?
+    torch.backends.cudnn.benchmark = True 
 
     print(f'device: {device}')
-
-    # TODO: How to handle multi-epsiode data reading?
-    partition = generate_partition() # e.g. {'train': ['id-1', 'id-2', 'id-3'], 'val': ['id-4']}
-    labels = generate_labels() # load from episode label dict
 
     # Define transformations
     transform = transforms.Compose([
@@ -31,11 +29,24 @@ def main():
     ])
 
     # Set data generators
-    train_set = DrivingDataset(partition['train'], labels, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    train_set = DrivingDataset(args.train, transform=transform)
+    train_loader = torch.utils.data.DataLoader(
+        train_set, 
+        batch_size=args.batch_size, 
+        shuffle=True, 
+        num_workers=args.num_workers,
+        pin_memory=True # TODO: understand it more
+    )
 
-    val_set = DrivingDataset(partition['val'], labels, transform=transform)
-    val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=6)
+    val_set = DrivingDataset(args.val, transform=transform)
+    val_loader = torch.utils.data.DataLoader(
+        val_set, 
+        batch_size=args.batch_size, 
+        shuffle=False, 
+        num_workers=args.num_workers,
+        pin_memory=True
+    )
+    print(f'# train examples: {len(train_set)}, # val examples: {len(val_set)}')
 
     # Init neural net
     net = PilotNet()
@@ -43,7 +54,7 @@ def main():
 
     # Define loss function and optimizer
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
     # Init Tensorboard writer
     writer = SummaryWriter()
@@ -52,11 +63,17 @@ def main():
     best_val_loss = float('inf')
     makedirs(args.checkpoints_path)
 
+    # TODO: Look at keras progress bar code to get more inspiration
+    progress_bar_format = '{l_bar}{bar:10}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]{bar:-10b}' 
+
     # Perform dark magic
     for epoch in range(args.epochs):
+        print(f'Epoch {epoch + 1}/{args.epochs}')
+
         # Train
         train_loss = 0.0
-        for i, (local_batch, local_labels) in enumerate(train_loader):
+        train_loop = tqdm(enumerate(train_loader), total=len(train_loader), unit='step', bar_format=progress_bar_format)
+        for i, (local_batch, local_labels) in train_loop:
             local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
             optimizer.zero_grad()
@@ -66,30 +83,32 @@ def main():
             loss.backward()
             optimizer.step()
 
-            # print stats
             train_loss += loss.item()
-            # if i % 10 == 9:
-            print('[%d, %5d] loss: %.3f' % (epoch + 1, i + 1, loss.item() / (i + 1)))
+
+            # Update progress bar
+            train_loop.set_postfix(loss=train_loss / (i + 1))
 
         # Validate
         val_loss = 0.0
+        val_loop = tqdm(enumerate(val_loader), total=len(val_loader), unit='step', bar_format=progress_bar_format)
         with torch.set_grad_enabled(False):
-            for local_batch, local_labels in val_loader:
+            for i, (local_batch, local_labels) in val_loop:
                 local_batch, local_labels = local_batch.to(device), local_labels.to(device)
 
                 outputs = net(local_batch)
                 loss = criterion(outputs, local_labels)
                 val_loss += loss.item()
 
+                val_loop.set_postfix(val_loss=val_loss / (i + 1))
+
         train_loss = train_loss / len(train_loader)
         val_loss = val_loss / len(val_loader)
-        print(f'Epoch {epoch + 1}: train loss = {train_loss:.3f}, val loss = {val_loss:.3f}')
 
         # Save best model every epoch
         is_best = val_loss < best_val_loss
         if is_best:
             print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
-            save_checkpoint(net.state_dict())
+            save_checkpoint(net.state_dict(), f'checkpoints/net_epoch_{epoch}.pt')
             best_val_loss = min(val_loss, best_val_loss)
 
         # Log to Tensorboard
