@@ -30,10 +30,22 @@ def main():
 
     # Set data generators
     train_set = DrivingDataset(args.train, transform=transform)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    train_loader = torch.utils.data.DataLoader(
+        train_set, 
+        batch_size=args.batch_size, 
+        shuffle=True, 
+        num_workers=args.num_workers,
+        pin_memory=True # TODO: understand it more
+    )
 
     val_set = DrivingDataset(args.val, transform=transform)
-    val_loader = torch.utils.data.DataLoader(val_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    val_loader = torch.utils.data.DataLoader(
+        val_set, 
+        batch_size=args.batch_size, 
+        shuffle=False, 
+        num_workers=args.num_workers,
+        pin_memory=True
+    )
     print(f'# train examples: {len(train_set)}, # val examples: {len(val_set)}')
 
     # Init neural net
@@ -89,11 +101,14 @@ def main():
 
                 val_loop.set_postfix(val_loss=val_loss / (i + 1))
 
+        train_loss = train_loss / len(train_loader)
+        val_loss = val_loss / len(val_loader)
+
         # Save best model every epoch
         is_best = val_loss < best_val_loss
         if is_best:
             print(f'Saving new best model: val loss improved from {best_val_loss:.3f} to {val_loss:.3f}')
-            save_checkpoint(net.state_dict())
+            save_checkpoint(net.state_dict(), f'checkpoints/net_epoch_{epoch}.pt')
             best_val_loss = min(val_loss, best_val_loss)
 
         # Log to Tensorboard

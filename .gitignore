@@ -2,6 +2,9 @@
 _benchmarks_results/
 _out/
 
+# Profile dump
+prof/
+
 # Vim
 *.swp
 
