@@ -10,7 +10,7 @@
 # and more documented example.
 
 """
-Welcome to CARLA manual control.
+You have taken the blue pill.
 
 Use ARROWS or WASD keys for control.
 
@@ -66,10 +66,10 @@ from carla.tcp import TCPConnectionError
 from carla.util import print_over_same_line
 
 
-WINDOW_WIDTH = 200
-WINDOW_HEIGHT = 66
-MINI_WINDOW_WIDTH = 320
-MINI_WINDOW_HEIGHT = 180
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+MINI_WINDOW_WIDTH = 200
+MINI_WINDOW_HEIGHT = 66
 
 
 def make_carla_settings(args):
@@ -83,16 +83,16 @@ def make_carla_settings(args):
         WeatherId=random.choice([1, 3, 7, 8, 14]),
         QualityLevel=args.quality_level)
     settings.randomize_seeds()
-    camera0 = sensor.Camera('CameraRGB')
+    camera0 = sensor.Camera('MainCameraRGB')
     camera0.set_image_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     camera0.set_position(2.0, 0.0, 1.4)
     camera0.set_rotation(0.0, 0.0, 0.0)
     settings.add_sensor(camera0)
-    # camera1 = sensor.Camera('CameraDepth', PostProcessing='Depth')
-    # camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
-    # camera1.set_position(2.0, 0.0, 1.4)
-    # camera1.set_rotation(0.0, 0.0, 0.0)
-    # settings.add_sensor(camera1)
+    camera1 = sensor.Camera('CameraRGB')
+    camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
+    camera1.set_position(2.0, 0.0, 1.4)
+    camera1.set_rotation(0.0, 0.0, 0.0)
+    settings.add_sensor(camera1)
     # camera2 = sensor.Camera('CameraSemSeg', PostProcessing='SemanticSegmentation')
     # camera2.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
     # camera2.set_position(2.0, 0.0, 1.4)
@@ -198,8 +198,8 @@ class CarlaGame(object):
 
         measurements, sensor_data = self.client.read_data()
 
-        self._main_image = sensor_data.get('CameraRGB', None)
-        self._mini_view_image1 = sensor_data.get('CameraDepth', None)
+        self._main_image = sensor_data.get('MainCameraRGB', None)
+        self._mini_view_image1 = sensor_data.get('CameraRGB', None)
         self._mini_view_image2 = sensor_data.get('CameraSemSeg', None)
         self._lidar_measurement = sensor_data.get('Lidar32', None)
 
@@ -229,10 +229,14 @@ class CarlaGame(object):
             self._timer.lap()
 
         # No longer rely on manual keyboard input
-        # control = self._get_keyboard_control(pygame.key.get_pressed())
         # Get control data from autnomous agent
-        directions, target = None, None # TODO: Use planner to get these
-        control = self.agent.run_step(measurements, sensor_data, directions, target)
+        # First couple of frames have not yet initialized sensor_data so mute asking for prediction
+        control = VehicleControl()
+        if 'CameraRGB' in sensor_data:
+            directions, target = None, None # TODO: Use planner to get these
+            control = self.agent.run_step(measurements, sensor_data, directions, target)
+        # Intervene freely
+        # control = self._get_keyboard_control(pygame.key.get_pressed())
 
         # Set the player position
         if self._city_name is not None:
@@ -242,7 +246,7 @@ class CarlaGame(object):
                 measurements.player_measurements.transform.location.z])
             self._agent_positions = measurements.non_player_agents
 
-        if control is None:
+        if control is None: # TODO: because of control meddling above, this no longer works
             self._on_new_episode()
         elif self._enable_autopilot:
             self.client.send_control(measurements.player_measurements.autopilot_control)
@@ -318,7 +322,8 @@ class CarlaGame(object):
             self._display.blit(surface, (0, 0))
 
         if self._mini_view_image1 is not None:
-            array = image_converter.depth_to_logarithmic_grayscale(self._mini_view_image1)
+            # array = image_converter.depth_to_logarithmic_grayscale(self._mini_view_image1)
+            array = image_converter.to_rgb_array(self._mini_view_image1)
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
             self._display.blit(surface, (gap_x, mini_image_y))
 
