@@ -1,3 +1,6 @@
+# Jupyter
+.ipynb_checkpoints/
+
 # Carla python client artifacts
 _benchmarks_results/
 _out/
