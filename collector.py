@@ -127,7 +127,7 @@ def run_carla_client(args):
 
                 # Get autopilot control
                 control = measurements.player_measurements.autopilot_control
-                control.steer += random.uniform(-0.1, 0.1)
+                # control.steer += random.uniform(-0.1, 0.1)
 
                 # Print some of the measurements.
                 print_measurements(measurements)
