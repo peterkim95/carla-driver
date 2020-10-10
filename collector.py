@@ -55,7 +55,8 @@ def run_carla_client(args):
                     SendNonPlayerAgentsInfo=True,
                     NumberOfVehicles=20,
                     NumberOfPedestrians=40,
-                    WeatherId=random.choice([1, 3, 7, 8, 14]),
+                    WeatherId=1,
+                    # WeatherId=random.choice([1, 3, 7, 8, 14]),
                     QualityLevel=args.quality_level)
                 settings.randomize_seeds()
 

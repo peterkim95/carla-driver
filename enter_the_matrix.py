@@ -80,7 +80,9 @@ def make_carla_settings(args):
         SendNonPlayerAgentsInfo=True,
         NumberOfVehicles=20,
         NumberOfPedestrians=40,
-        WeatherId=random.choice([1, 3, 7, 8, 14]),
+        WeatherId=1,
+        # TODO: this setting doesn't actually influence anything. see definition
+        # WeatherId=random.choice([1, 3, 7, 8, 14]),
         QualityLevel=args.quality_level)
     settings.randomize_seeds()
     camera0 = sensor.Camera('MainCameraRGB')
@@ -185,7 +187,7 @@ class CarlaGame(object):
 
     def _on_new_episode(self):
         self._carla_settings.randomize_seeds()
-        self._carla_settings.randomize_weather()
+        # self._carla_settings.randomize_weather()
         scene = self.client.load_settings(self._carla_settings)
         number_of_player_starts = len(scene.player_start_spots)
         player_start = np.random.randint(number_of_player_starts)
@@ -414,7 +416,7 @@ def main():
         default='Epic',
         help='graphics quality level, a lower level makes the simulation run considerably faster.')
     argparser.add_argument(
-        '-m', '--map-name',
+        '-m', '--map_name',
         metavar='M',
         default=None,
         help='plot the map of the current city (needs to match active map in '
