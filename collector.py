@@ -55,7 +55,8 @@ def run_carla_client(args):
                     SendNonPlayerAgentsInfo=True,
                     NumberOfVehicles=20,
                     NumberOfPedestrians=40,
-                    WeatherId=random.choice([1, 3, 7, 8, 14]),
+                    WeatherId=1,
+                    # WeatherId=random.choice([1, 3, 7, 8, 14]),
                     QualityLevel=args.quality_level)
                 settings.randomize_seeds()
 
@@ -126,7 +127,7 @@ def run_carla_client(args):
 
                 # Get autopilot control
                 control = measurements.player_measurements.autopilot_control
-                control.steer += random.uniform(-0.1, 0.1)
+                # control.steer += random.uniform(-0.1, 0.1)
 
                 # Print some of the measurements.
                 print_measurements(measurements)
@@ -213,7 +214,7 @@ def print_measurements(measurements):
 
 
 def get_current_datetime():
-    return datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    return datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
 
 
 def main():
