@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-
-# Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB).
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
-"""Basic CARLA client example."""
-
 from __future__ import print_function
 
 import shutil
@@ -32,7 +22,9 @@ from util import makedirs
 def run_carla_client(args):
     number_of_episodes = args.episodes
     frames_per_episode = args.frames
-
+    
+    CAMERA_RGB_WIDTH = args.camera_rgb_width
+    CAMERA_RGB_HEIGHT = args.camera_rgb_height
     # We assume the CARLA server is already waiting for a client to connect at
     # host:port. To create a connection we can use the `make_carla_client`
     # context manager, it creates a CARLA client object and starts the
@@ -64,18 +56,31 @@ def run_carla_client(args):
                 # We will collect the images produced by these cameras every
                 # frame.
 
-                # The default camera captures RGB images of the scene.
-                camera0 = Camera('CameraRGB')
+                # The center camera captures RGB images of the scene.
+                camera_center = Camera('CameraCenterRGB')
                 # Set image resolution in pixels.
-                camera0.set_image_size(800, 600)
+                camera_center.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                 # Set its position relative to the car in meters.
-                camera0.set_position(0.30, 0, 1.30)
-                settings.add_sensor(camera0)
+                # TODO: Wish there was a better way to know how these values will actually translate in-game
+                camera_center.set_position(0.30, 0, 1.30)
+                settings.add_sensor(camera_center)
 
-                # Let's add another camera producing ground-truth depth.
+                # Left RGB camera
+                camera_left = Camera('CameraLeftRGB')
+                camera_left.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
+                camera_left.set_position(0.30, -0.50, 1.30)
+                settings.add_sensor(camera_left)
+
+                # Right RGB camera
+                camera_right = Camera('CameraRightRGB')
+                camera_right.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
+                camera_right.set_position(0.30, 0.50, 1.30)
+                settings.add_sensor(camera_right)
+                
+                # Optional depth camera
                 if args.depth:
                     camera1 = Camera('CameraDepth', PostProcessing='Depth')
-                    camera1.set_image_size(800, 600)
+                    camera1.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                     camera1.set_position(0.30, 0, 1.30)
                     settings.add_sensor(camera1)
 
@@ -282,6 +287,18 @@ def main():
         type=int,
         help='# of frames per episode'
     )
+    argparser.add_argument(
+        '--camera_rgb_width',
+        default=200,
+        type=int,
+        help='width of rgb camera'
+    )
+    argparser.add_argument(
+        '--camera_rgb_height',
+        default=66,
+        type=int,
+        help='height of rgb camera'
+    )
     args = argparser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -322,7 +339,6 @@ def split_data(data_path, max_episodes, split_ratio):
         shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/val/episode_{e:0>4d}')
 
 if __name__ == '__main__':
-
     try:
         main()
     except KeyboardInterrupt:
