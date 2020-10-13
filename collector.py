@@ -68,13 +68,13 @@ def run_carla_client(args):
                 # Left RGB camera
                 camera_left = Camera('CameraLeftRGB')
                 camera_left.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                camera_left.set_position(0.30, -0.50, 1.30)
+                camera_left.set_position(0.30, -0.75, 1.30)
                 settings.add_sensor(camera_left)
 
                 # Right RGB camera
                 camera_right = Camera('CameraRightRGB')
                 camera_right.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                camera_right.set_position(0.30, 0.50, 1.30)
+                camera_right.set_position(0.30, 0.75, 1.30)
                 settings.add_sensor(camera_right)
                 
                 # Optional depth camera
@@ -289,13 +289,13 @@ def main():
     )
     argparser.add_argument(
         '--camera_rgb_width',
-        default=200,
+        default=800,
         type=int,
         help='width of rgb camera'
     )
     argparser.add_argument(
         '--camera_rgb_height',
-        default=66,
+        default=600,
         type=int,
         help='height of rgb camera'
     )
