@@ -191,7 +191,7 @@ def run_carla_client(args):
                     # control = measurements.player_measurements.autopilot_control
                     # TODO: Does random steering jitter add human-ness?
                     # control.steer += random.uniform(-0.1, 0.1)
-                    client.send_control(control)
+                    client.send_control(autopilot_control)
 
             # Save episode label dict.
             with open(args.out_labelname_format.format(episode), 'wb') as f:
@@ -212,7 +212,7 @@ def generate_control_dict(control):
 def print_measurements(measurements):
     number_of_agents = len(measurements.non_player_agents)
     player_measurements = measurements.player_measurements
-    message = 'Vehicle at ({pos_x:.1f}, {pos_y:.1f}), '
+    message = 'Vehicle at ({pos_x:.1f}, {pos_y:.1f}, {pos_z:.1f}), '
     message += '{speed:.0f} km/h, '
     message += 'Collision: {{vehicles={col_cars:.0f}, pedestrians={col_ped:.0f}, other={col_other:.0f}}}, '
     message += '{other_lane:.0f}% other lane, {offroad:.0f}% off-road, '
@@ -220,6 +220,7 @@ def print_measurements(measurements):
     message = message.format(
         pos_x=player_measurements.transform.location.x,
         pos_y=player_measurements.transform.location.y,
+        pos_z=player_measurements.transform.location.z,
         speed=player_measurements.forward_speed * 3.6, # m/s -> km/h
         col_cars=player_measurements.collision_vehicles,
         col_ped=player_measurements.collision_pedestrians,
