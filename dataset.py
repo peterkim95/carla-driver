@@ -12,7 +12,7 @@ from PIL import Image
 class DrivingDataset(Dataset):
     def __init__(self, data_path, transform=None):
         self.data_path = data_path
-        imgs = glob.glob(f'{data_path}/*/CameraRGB/*.png')
+        imgs = glob.glob(f'{data_path}/*/*/*.png') # e.g. data_path/episode_x/RGBCenter/x.png
         self.list_IDs = list(map(lambda s: s.replace(data_path, '').replace('.png', '')[1:], imgs))
 
         labels = glob.glob(f'{data_path}/*/*.pickle')
