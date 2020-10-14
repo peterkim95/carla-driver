@@ -32,7 +32,8 @@ def run_carla_client(args):
     # context manager makes sure the connection is always cleaned up on exit.
     with make_carla_client(args.host, args.port) as client:
         print('CarlaClient connected')
-
+        
+        episode_start_time = time.perf_counter()
         for episode in range(0, number_of_episodes):
             # Start a new episode.
 
@@ -196,6 +197,8 @@ def run_carla_client(args):
             # Save episode label dict.
             with open(args.out_labelname_format.format(episode), 'wb') as f:
                 pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
+
+            print(f'epsiode elapsed time: {time.perf_counter() - episode_start_time:0.2f}')
 
 
 def generate_control_dict(control):
