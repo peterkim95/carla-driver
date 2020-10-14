@@ -23,7 +23,8 @@ def main():
 
     # Define transformations
     transform = transforms.Compose([
-        transforms.Resize((200, 66)),
+        transforms.CenterCrop((160, 320)),
+        transforms.Resize((66, 200)),
         transforms.ToTensor(), 
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
