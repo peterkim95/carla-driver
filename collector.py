@@ -286,32 +286,27 @@ def main():
         '-r', '--split_ratio',
         default=0.8,
         type=float,
-        help='train val split ratio'
-    )
+        help='train val split ratio')
     argparser.add_argument(
         '-e', '--episodes',
         default=3,
         type=int,
-        help='# of epsiodes to run'
-    )
+        help='# of epsiodes to run')
     argparser.add_argument(
         '-f', '--frames',
         default=300,
         type=int,
-        help='# of frames per episode'
-    )
+        help='# of frames per episode')
     argparser.add_argument(
         '--camera_rgb_width',
         default=800,
         type=int,
-        help='width of rgb camera'
-    )
+        help='width of rgb camera')
     argparser.add_argument(
         '--camera_rgb_height',
         default=600,
         type=int,
-        help='height of rgb camera'
-    )
+        help='height of rgb camera')
     args = argparser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -325,7 +320,6 @@ def main():
 
     while True:
         try:
-
             run_carla_client(args)
             print('Finished simulation.')
 
