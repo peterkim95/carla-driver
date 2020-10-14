@@ -57,7 +57,7 @@ def run_carla_client(args):
                 # frame.
 
                 # The center camera captures RGB images of the scene.
-                camera_center = Camera('CameraCenterRGB')
+                camera_center = Camera('RGBCenter')
                 # Set image resolution in pixels.
                 camera_center.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                 # Set its position relative to the car in meters.
@@ -66,13 +66,13 @@ def run_carla_client(args):
                 settings.add_sensor(camera_center)
 
                 # Left RGB camera
-                camera_left = Camera('CameraLeftRGB')
+                camera_left = Camera('RGBLeft')
                 camera_left.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                 camera_left.set_position(0.30, -0.75, 1.30)
                 settings.add_sensor(camera_left)
 
                 # Right RGB camera
-                camera_right = Camera('CameraRightRGB')
+                camera_right = Camera('RGBRight')
                 camera_right.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                 camera_right.set_position(0.30, 0.75, 1.30)
                 settings.add_sensor(camera_right)
@@ -131,7 +131,7 @@ def run_carla_client(args):
                 measurements, sensor_data = client.read_data()
 
                 # Get autopilot control
-                control = measurements.player_measurements.autopilot_control
+                autopilot_control = measurements.player_measurements.autopilot_control
                 # control.steer += random.uniform(-0.1, 0.1)
 
                 # Print some of the measurements.
@@ -145,7 +145,19 @@ def run_carla_client(args):
 
                         # Save label
                         label_key = 'episode_{:0>4d}/{:s}/{:0>6d}'.format(episode, name, frame)
-                        episode_label[label_key] = generate_control_dict(control)
+                        control_dict = generate_control_dict(autopilot_control)
+                        if name == 'RGBCenter':
+                            # no modifications to autopilot control
+                            episode_label[label_key] = control_dict
+                        elif name == 'RGBRight':
+                            control_dict['steer'] = -0.5
+                            episode_label[label_key] = control_dict
+                        elif name == 'RGBLeft':
+                            control_dict['steer'] = 0.5
+                            episode_label[label_key] = control_dict
+                        else:
+                            raise Exception('Unknown Sensor')
+
 
                 # We can access the encoded data of a given image as numpy
                 # array using its "data" property. For instance, to get the
