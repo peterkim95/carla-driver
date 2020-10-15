@@ -1,11 +1,11 @@
-from pilotnet import PilotNet
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 
 from carla.agent.agent import Agent
 from carla.client import VehicleControl
 
-from pilotnet import PilotNet
+from pilotnet import PilotNet, get_transform
 
 class L5Agent(Agent):
     """
@@ -41,12 +41,11 @@ class L5Agent(Agent):
         rgb_array = sensor_data['CameraRGB'].data.copy()
         # numpy shape should be (H x W x C) in range [0,255] with dtype=np.uint8
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
+        image = Image.fromarray(rgb_array)
 
-        x = transform(rgb_array)
+        transform = get_transform()
+
+        x = transform(image)
         with torch.no_grad(): # reduce mem usage and speed up computation
             y = self.pilotnet(x.unsqueeze(0)) # TODO: Ew. Do I have to add a batch dimension?
         predicted_steer = y.item()

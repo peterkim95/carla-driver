@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision.transforms as transforms
 
 class PilotNet(nn.Module):
     """
@@ -18,7 +19,7 @@ class PilotNet(nn.Module):
         self.conv5 = nn.Conv2d(64, 64, 3, stride=1)
 
         self.fc1 = nn.Linear(18 * 64, 1164)
-        self.fc2 = nn.Linear(1164, 100)
+        self.fc2 = nn.Linear(18 * 64, 100)
         self.fc3 = nn.Linear(100, 50)
         self.fc4 = nn.Linear(50, 10)
         self.fc5 = nn.Linear(10, 1)
@@ -33,9 +34,18 @@ class PilotNet(nn.Module):
         x = x.view(-1, 18 * 64)
 
         # TODO: add dropout to fc layers
-        x = F.relu(self.fc1(x))
+        # x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = F.relu(self.fc4(x))
         x = torch.tanh(self.fc5(x))
         return x
+
+def get_transform():
+    transform = transforms.Compose([
+        transforms.CenterCrop((160, 320)),
+        transforms.Resize((66, 200)),
+        transforms.ToTensor(), 
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+    return transform
