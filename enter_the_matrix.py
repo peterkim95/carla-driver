@@ -239,7 +239,7 @@ class CarlaGame(object):
             directions, target = None, None # TODO: Use planner to get these
             control = self.agent.run_step(measurements, sensor_data, directions, target)
         # Intervene freely
-        # control = self._get_keyboard_control(pygame.key.get_pressed())
+        manual_control = self._get_keyboard_control(pygame.key.get_pressed())
 
         # Set the player position
         if self._city_name is not None:
@@ -248,6 +248,9 @@ class CarlaGame(object):
                 measurements.player_measurements.transform.location.y,
                 measurements.player_measurements.transform.location.z])
             self._agent_positions = measurements.non_player_agents
+
+        if manual_control is None:
+            self._on_new_episode()
 
         if control is None: # TODO: because of control meddling above, this no longer works
             self._on_new_episode()
