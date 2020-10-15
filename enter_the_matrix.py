@@ -402,6 +402,10 @@ def main():
         type=int,
         help='TCP port to listen to (default: 2000)')
     argparser.add_argument(
+        '--net_path',
+        type=str,
+        help='model weight path for agent\'s steering network')
+    argparser.add_argument(
         '-a', '--autopilot',
         action='store_true',
         help='enable autopilot')
@@ -434,7 +438,7 @@ def main():
         try:
 
             with make_carla_client(args.host, args.port) as client:
-                agent = L5Agent()
+                agent = L5Agent(args.net_path)
                 game = CarlaGame(client, agent, args)
                 game.execute()
                 break

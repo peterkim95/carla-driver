@@ -12,7 +12,7 @@ class L5Agent(Agent):
     Simple derivation of Agent Class,
     A trivial agent that goes straight
     """
-    def __init__(self, net_path='checkpoints/net_best_epoch_20.pt'):
+    def __init__(self, net_path):
         super().__init__()
         self.pilotnet = PilotNet()
         self.pilotnet.load_state_dict(torch.load(net_path))
