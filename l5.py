@@ -1,18 +1,18 @@
-from pilotnet import PilotNet
 import torch
 import torchvision.transforms as transforms
+from PIL import Image
 
 from carla.agent.agent import Agent
 from carla.client import VehicleControl
 
-from pilotnet import PilotNet
+from pilotnet import PilotNet, get_transform
 
 class L5Agent(Agent):
     """
     Simple derivation of Agent Class,
     A trivial agent that goes straight
     """
-    def __init__(self, net_path='checkpoints/net_best_epoch_20.pt'):
+    def __init__(self, net_path):
         super().__init__()
         self.pilotnet = PilotNet()
         self.pilotnet.load_state_dict(torch.load(net_path))
@@ -38,15 +38,14 @@ class L5Agent(Agent):
         return control
 
     def predict_control(self, sensor_data):
-        rgb_array = sensor_data['CameraRGB'].data.copy()
+        rgb_array = sensor_data['MainCameraRGB'].data.copy()
         # numpy shape should be (H x W x C) in range [0,255] with dtype=np.uint8
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        ])
+        image = Image.fromarray(rgb_array)
 
-        x = transform(rgb_array)
+        transform = get_transform()
+
+        x = transform(image)
         with torch.no_grad(): # reduce mem usage and speed up computation
             y = self.pilotnet(x.unsqueeze(0)) # TODO: Ew. Do I have to add a batch dimension?
         predicted_steer = y.item()

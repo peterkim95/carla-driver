@@ -91,11 +91,11 @@ def make_carla_settings(args):
     # camera0.set_position(2.0, 0.0, 1.4)
     camera0.set_rotation(0.0, 0.0, 0.0)
     settings.add_sensor(camera0)
-    camera1 = sensor.Camera('CameraRGB')
-    camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
-    camera1.set_position(0.30, 0, 1.30)
-    camera1.set_rotation(0.0, 0.0, 0.0)
-    settings.add_sensor(camera1)
+    # camera1 = sensor.Camera('CameraRGB')
+    # camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
+    # camera1.set_position(0.30, 0, 1.30)
+    # camera1.set_rotation(0.0, 0.0, 0.0)
+    # settings.add_sensor(camera1)
     # camera2 = sensor.Camera('CameraSemSeg', PostProcessing='SemanticSegmentation')
     # camera2.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
     # camera2.set_position(2.0, 0.0, 1.4)
@@ -235,11 +235,11 @@ class CarlaGame(object):
         # Get control data from autnomous agent
         # First couple of frames have not yet initialized sensor_data so mute asking for prediction
         control = VehicleControl()
-        if 'CameraRGB' in sensor_data:
+        if 'MainCameraRGB' in sensor_data:
             directions, target = None, None # TODO: Use planner to get these
             control = self.agent.run_step(measurements, sensor_data, directions, target)
         # Intervene freely
-        # control = self._get_keyboard_control(pygame.key.get_pressed())
+        manual_control = self._get_keyboard_control(pygame.key.get_pressed())
 
         # Set the player position
         if self._city_name is not None:
@@ -248,6 +248,9 @@ class CarlaGame(object):
                 measurements.player_measurements.transform.location.y,
                 measurements.player_measurements.transform.location.z])
             self._agent_positions = measurements.non_player_agents
+
+        if manual_control is None:
+            self._on_new_episode()
 
         if control is None: # TODO: because of control meddling above, this no longer works
             self._on_new_episode()
@@ -402,6 +405,10 @@ def main():
         type=int,
         help='TCP port to listen to (default: 2000)')
     argparser.add_argument(
+        '--net_path',
+        type=str,
+        help='model weight path for agent\'s steering network')
+    argparser.add_argument(
         '-a', '--autopilot',
         action='store_true',
         help='enable autopilot')
@@ -434,7 +441,7 @@ def main():
         try:
 
             with make_carla_client(args.host, args.port) as client:
-                agent = L5Agent()
+                agent = L5Agent(args.net_path)
                 game = CarlaGame(client, agent, args)
                 game.execute()
                 break

@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.transforms as transforms
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from tutorialnet import TutorialNet
-from pilotnet import PilotNet
+from pilotnet import PilotNet, get_transform
 from dataset import DrivingDataset
 from util import get_args, save_checkpoint, makedirs
 
@@ -22,11 +21,7 @@ def main():
     print(f'device: {device}')
 
     # Define transformations
-    transform = transforms.Compose([
-        transforms.Resize((200, 66)),
-        transforms.ToTensor(), 
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+    transform = get_transform()
 
     # Set data generators
     train_set = DrivingDataset(args.train, transform=transform)

@@ -1,13 +1,3 @@
-#!/usr/bin/env python3
-
-# Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB).
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
-"""Basic CARLA client example."""
-
 from __future__ import print_function
 
 import shutil
@@ -32,7 +22,9 @@ from util import makedirs
 def run_carla_client(args):
     number_of_episodes = args.episodes
     frames_per_episode = args.frames
-
+    
+    CAMERA_RGB_WIDTH = args.camera_rgb_width
+    CAMERA_RGB_HEIGHT = args.camera_rgb_height
     # We assume the CARLA server is already waiting for a client to connect at
     # host:port. To create a connection we can use the `make_carla_client`
     # context manager, it creates a CARLA client object and starts the
@@ -40,7 +32,8 @@ def run_carla_client(args):
     # context manager makes sure the connection is always cleaned up on exit.
     with make_carla_client(args.host, args.port) as client:
         print('CarlaClient connected')
-
+        
+        episode_start_time = time.perf_counter()
         for episode in range(0, number_of_episodes):
             # Start a new episode.
 
@@ -64,18 +57,31 @@ def run_carla_client(args):
                 # We will collect the images produced by these cameras every
                 # frame.
 
-                # The default camera captures RGB images of the scene.
-                camera0 = Camera('CameraRGB')
+                # The center camera captures RGB images of the scene.
+                camera_center = Camera('RGBCenter')
                 # Set image resolution in pixels.
-                camera0.set_image_size(800, 600)
+                camera_center.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                 # Set its position relative to the car in meters.
-                camera0.set_position(0.30, 0, 1.30)
-                settings.add_sensor(camera0)
+                # TODO: Wish there was a better way to know how these values will actually translate in-game
+                camera_center.set_position(0.30, 0, 1.30)
+                settings.add_sensor(camera_center)
 
-                # Let's add another camera producing ground-truth depth.
+                # Left RGB camera
+                camera_left = Camera('RGBLeft')
+                camera_left.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
+                camera_left.set_position(0.30, -0.75, 1.30)
+                settings.add_sensor(camera_left)
+
+                # Right RGB camera
+                camera_right = Camera('RGBRight')
+                camera_right.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
+                camera_right.set_position(0.30, 0.75, 1.30)
+                settings.add_sensor(camera_right)
+                
+                # Optional depth camera
                 if args.depth:
                     camera1 = Camera('CameraDepth', PostProcessing='Depth')
-                    camera1.set_image_size(800, 600)
+                    camera1.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
                     camera1.set_position(0.30, 0, 1.30)
                     settings.add_sensor(camera1)
 
@@ -126,7 +132,7 @@ def run_carla_client(args):
                 measurements, sensor_data = client.read_data()
 
                 # Get autopilot control
-                control = measurements.player_measurements.autopilot_control
+                autopilot_control = measurements.player_measurements.autopilot_control
                 # control.steer += random.uniform(-0.1, 0.1)
 
                 # Print some of the measurements.
@@ -140,7 +146,19 @@ def run_carla_client(args):
 
                         # Save label
                         label_key = 'episode_{:0>4d}/{:s}/{:0>6d}'.format(episode, name, frame)
-                        episode_label[label_key] = generate_control_dict(control)
+                        control_dict = generate_control_dict(autopilot_control)
+                        if name == 'RGBCenter':
+                            # no modifications to autopilot control
+                            episode_label[label_key] = control_dict
+                        elif name == 'RGBRight':
+                            control_dict['steer'] = -0.5
+                            episode_label[label_key] = control_dict
+                        elif name == 'RGBLeft':
+                            control_dict['steer'] = 0.5
+                            episode_label[label_key] = control_dict
+                        else:
+                            raise Exception('Unknown Sensor')
+
 
                 # We can access the encoded data of a given image as numpy
                 # array using its "data" property. For instance, to get the
@@ -174,11 +192,13 @@ def run_carla_client(args):
                     # control = measurements.player_measurements.autopilot_control
                     # TODO: Does random steering jitter add human-ness?
                     # control.steer += random.uniform(-0.1, 0.1)
-                    client.send_control(control)
+                    client.send_control(autopilot_control)
 
             # Save episode label dict.
             with open(args.out_labelname_format.format(episode), 'wb') as f:
                 pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
+
+            print(f'epsiode elapsed time: {time.perf_counter() - episode_start_time:0.2f}')
 
 
 def generate_control_dict(control):
@@ -195,7 +215,7 @@ def generate_control_dict(control):
 def print_measurements(measurements):
     number_of_agents = len(measurements.non_player_agents)
     player_measurements = measurements.player_measurements
-    message = 'Vehicle at ({pos_x:.1f}, {pos_y:.1f}), '
+    message = 'Vehicle at ({pos_x:.1f}, {pos_y:.1f}, {pos_z:.1f}), '
     message += '{speed:.0f} km/h, '
     message += 'Collision: {{vehicles={col_cars:.0f}, pedestrians={col_ped:.0f}, other={col_other:.0f}}}, '
     message += '{other_lane:.0f}% other lane, {offroad:.0f}% off-road, '
@@ -203,6 +223,7 @@ def print_measurements(measurements):
     message = message.format(
         pos_x=player_measurements.transform.location.x,
         pos_y=player_measurements.transform.location.y,
+        pos_z=player_measurements.transform.location.z,
         speed=player_measurements.forward_speed * 3.6, # m/s -> km/h
         col_cars=player_measurements.collision_vehicles,
         col_ped=player_measurements.collision_pedestrians,
@@ -268,20 +289,27 @@ def main():
         '-r', '--split_ratio',
         default=0.8,
         type=float,
-        help='train val split ratio'
-    )
+        help='train val split ratio')
     argparser.add_argument(
         '-e', '--episodes',
         default=3,
         type=int,
-        help='# of epsiodes to run'
-    )
+        help='# of epsiodes to run')
     argparser.add_argument(
         '-f', '--frames',
         default=300,
         type=int,
-        help='# of frames per episode'
-    )
+        help='# of frames per episode')
+    argparser.add_argument(
+        '--camera_rgb_width',
+        default=800,
+        type=int,
+        help='width of rgb camera')
+    argparser.add_argument(
+        '--camera_rgb_height',
+        default=600,
+        type=int,
+        help='height of rgb camera')
     args = argparser.parse_args()
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -295,7 +323,6 @@ def main():
 
     while True:
         try:
-
             run_carla_client(args)
             print('Finished simulation.')
 
@@ -322,7 +349,6 @@ def split_data(data_path, max_episodes, split_ratio):
         shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/val/episode_{e:0>4d}')
 
 if __name__ == '__main__':
-
     try:
         main()
     except KeyboardInterrupt:
