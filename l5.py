@@ -38,7 +38,7 @@ class L5Agent(Agent):
         return control
 
     def predict_control(self, sensor_data):
-        rgb_array = sensor_data['CameraRGB'].data.copy()
+        rgb_array = sensor_data['MainCameraRGB'].data.copy()
         # numpy shape should be (H x W x C) in range [0,255] with dtype=np.uint8
 
         image = Image.fromarray(rgb_array)

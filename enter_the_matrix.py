@@ -91,11 +91,11 @@ def make_carla_settings(args):
     # camera0.set_position(2.0, 0.0, 1.4)
     camera0.set_rotation(0.0, 0.0, 0.0)
     settings.add_sensor(camera0)
-    camera1 = sensor.Camera('CameraRGB')
-    camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
-    camera1.set_position(0.30, 0, 1.30)
-    camera1.set_rotation(0.0, 0.0, 0.0)
-    settings.add_sensor(camera1)
+    # camera1 = sensor.Camera('CameraRGB')
+    # camera1.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
+    # camera1.set_position(0.30, 0, 1.30)
+    # camera1.set_rotation(0.0, 0.0, 0.0)
+    # settings.add_sensor(camera1)
     # camera2 = sensor.Camera('CameraSemSeg', PostProcessing='SemanticSegmentation')
     # camera2.set_image_size(MINI_WINDOW_WIDTH, MINI_WINDOW_HEIGHT)
     # camera2.set_position(2.0, 0.0, 1.4)
@@ -235,7 +235,7 @@ class CarlaGame(object):
         # Get control data from autnomous agent
         # First couple of frames have not yet initialized sensor_data so mute asking for prediction
         control = VehicleControl()
-        if 'CameraRGB' in sensor_data:
+        if 'MainCameraRGB' in sensor_data:
             directions, target = None, None # TODO: Use planner to get these
             control = self.agent.run_step(measurements, sensor_data, directions, target)
         # Intervene freely
