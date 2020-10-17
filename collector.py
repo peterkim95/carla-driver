@@ -151,10 +151,10 @@ def run_carla_client(args):
                             # no modifications to autopilot control
                             episode_label[label_key] = control_dict
                         elif name == 'RGBRight':
-                            control_dict['steer'] = -0.5
+                            control_dict['steer'] = -0.25
                             episode_label[label_key] = control_dict
                         elif name == 'RGBLeft':
-                            control_dict['steer'] = 0.5
+                            control_dict['steer'] = 0.25
                             episode_label[label_key] = control_dict
                         else:
                             raise Exception('Unknown Sensor')
