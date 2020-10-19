@@ -51,6 +51,6 @@ class L5Agent(Agent):
         predicted_steer = y.item()
 
         control = VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.3
         control.steer = predicted_steer
         return control
