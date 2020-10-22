@@ -331,13 +331,16 @@ class CarlaGame(object):
             self._display.blit(surface, (0, 0))
 
         if self._visual_backprop is not None:
-            print('printing visual backprop')
-            print(self._visual_backprop)
+            array = np.asarray(self._visual_backprop.convert('RGB')) # (66, 200, 3)
+            surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+            self._display.blit(surface, ((WINDOW_WIDTH / 2)-(MINI_WINDOW_HEIGHT / 2)-150, 450))
+            # self._display.blit(surface, (gap_x, mini_image_y))
 
         if self._mini_view_image1 is not None:
             # array = image_converter.depth_to_logarithmic_grayscale(self._mini_view_image1)
             array = image_converter.to_rgb_array(self._mini_view_image1)
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+            # self._display.blit(surface, (0, 0))
             self._display.blit(surface, (gap_x, mini_image_y))
 
         if self._mini_view_image2 is not None:

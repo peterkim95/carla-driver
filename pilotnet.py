@@ -42,7 +42,7 @@ class PilotNet(nn.Module):
         x = F.relu(self.conv5(x))
 
         avg_fm5 = torch.mean(x, dim=1, keepdim=True)
-        deconvolved_fm5 = self.dconv1(avg_fm5) # TODO: set weight to 1 and bias to 0
+        deconvolved_fm5 = self.dconv1(avg_fm5)
 
         pw_fm = deconvolved_fm5 * avg_fm4 # pointwise multiplication
         deconvolved_fm4 = self.dconv1(pw_fm)
