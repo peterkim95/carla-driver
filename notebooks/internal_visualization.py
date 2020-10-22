@@ -8,11 +8,12 @@ import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 
-# In[2]:
+# In[169]:
 
 
 import torch
 import numpy as np
+from matplotlib import cm
 from pilotnet import PilotNet, get_transform
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -88,25 +89,25 @@ net.visual_mask.register_forward_hook(get_activation('visual_mask'))
 activation
 
 
-# In[13]:
+# In[299]:
 
 
 output = net(t(im).unsqueeze(0))
 
 
-# In[17]:
+# In[300]:
 
 
 conv1_act = activation['conv1']
 
 
-# In[18]:
+# In[301]:
 
 
 conv1_act.size()
 
 
-# In[19]:
+# In[302]:
 
 
 act = conv1_act.squeeze()
@@ -173,10 +174,70 @@ from matplotlib.colors import Normalize
 x = plt.imshow(net.visual_mask.detach().squeeze(), norm=Normalize(vmin=0, vmax=1, clip=False), cmap='binary')
 
 
-# In[62]:
+# In[303]:
 
 
 mask = net.visual_mask.detach().squeeze().numpy()
+
+
+# In[124]:
+
+
+np.asarray(pim).shape
+
+
+# In[133]:
+
+
+np.expand_dims(mask, 2).shape
+
+
+# In[159]:
+
+
+rgba = np.append(np.asarray(pim), np.expand_dims((mask * 255).astype(np.uint8), 2), axis=2)
+
+
+# In[160]:
+
+
+rgba.shape
+
+
+# In[149]:
+
+
+pim = mt(im)
+
+
+# In[157]:
+
+
+np.asarray(pim.convert('LA')).shape
+
+
+# In[274]:
+
+
+mask.max()
+
+
+# In[330]:
+
+
+plt.imshow(mask, cmap='Reds')
+
+
+# In[308]:
+
+
+mask = net.visual_mask.detach().squeeze().numpy().copy()
+
+
+# In[ ]:
+
+
+net.visual_mask.detach().squeeze().numpy()
 
 
 # In[ ]:
@@ -185,16 +246,103 @@ mask = net.visual_mask.detach().squeeze().numpy()
 
 
 
-# In[71]:
+# In[312]:
 
 
-mask
+maskim = Image.fromarray(np.uint8(cm.hot(mask)*255))
+maskim
 
 
-# In[72]:
+# In[310]:
 
 
-x = plt.imshow(mask, norm=Normalize(vmin=0, vmax=1, clip=False), cmap='binary')
+idx = mask < 0.2
+
+
+# In[311]:
+
+
+mask[idx] = 0
+
+
+# In[318]:
+
+
+# img = Image.open('img.png')
+# img = img.convert("RGBA")
+datas = maskim.getdata()
+
+newData = []
+for item in datas:
+#     print(item)
+    if item[0] == 10 and item[1] == 0 and item[2] == 0:
+        newData.append((255, 255, 255, 0))
+    else:
+        newData.append(item)
+
+maskim.putdata(newData)
+
+
+# In[319]:
+
+
+maskim
+
+
+# In[327]:
+
+
+Image.alpha_composite(pim, maskim)
+
+
+# In[256]:
+
+
+np.array(pim).shape
+
+
+# In[278]:
+
+
+pim.putalpha(255)
+pim
+
+
+# In[321]:
+
+
+np.array(maskim).shape
+
+
+# In[264]:
+
+
+pim.paste(maskim, (0,0), maskim)
+
+
+# In[326]:
+
+
+pim.convert('1')
+
+
+# In[283]:
+
+
+maskim
+
+
+# In[277]:
+
+
+pim = mt(im)
+pim
+
+
+# In[293]:
+
+
+Image.alpha_composite(pim, maskim)
 
 
 # In[79]:

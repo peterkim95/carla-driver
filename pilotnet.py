@@ -72,6 +72,13 @@ class PilotNet(nn.Module):
         x = torch.tanh(self.fc5(x))
         return x
 
+def get_truncated_transform():
+    transform = transforms.Compose([
+        transforms.CenterCrop((160, 320)),
+        transforms.Resize((66, 200)),
+    ])
+    return transform
+
 def get_transform():
     transform = transforms.Compose([
         transforms.CenterCrop((160, 320)),
