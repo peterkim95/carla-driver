@@ -1,17 +1,14 @@
 import torch
-import torchvision.transforms as transforms
 from PIL import Image
+import numpy as np
+from matplotlib import cm
 
 from carla.agent.agent import Agent
 from carla.client import VehicleControl
 
-from pilotnet import PilotNet, get_transform
+from pilotnet import PilotNet, get_transform, get_truncated_transform
 
 class L5Agent(Agent):
-    """
-    Simple derivation of Agent Class,
-    A trivial agent that goes straight
-    """
     def __init__(self, net_path):
         super().__init__()
         self.pilotnet = PilotNet()
@@ -34,8 +31,32 @@ class L5Agent(Agent):
         # control = VehicleControl()
         # control.throttle = 0.3
         control = self.predict_control(sensor_data)
+        heatmap = self.get_heatmap(sensor_data)
         # print('predicted: ', control)
-        return control
+        return control, heatmap
+
+    def get_heatmap(self, sensor_data):
+        rgb_array = sensor_data['MainCameraRGB'].data.copy()
+        image = Image.fromarray(rgb_array)
+        transform = get_truncated_transform()
+        input_image = transform(image)
+        input_image.putalpha(255) # add RGB + A dimension for composite
+
+        mask_array = self.pilotnet.visual_mask.detach().squeeze().numpy().copy()
+        mask_array[mask_array < 0.2] = 0
+        mask_image = Image.fromarray(np.uint8(cm.hot(mask_array) * 255))
+
+        # Convert black pixels into transparent pixels
+        datas = mask_image.getdata()
+        newData = []
+        for item in datas:
+            if item[0] == 10 and item[1] == 0 and item[2] == 0:
+                newData.append((255, 255, 255, 0))
+            else:
+                newData.append(item)
+        mask_image.putdata(newData)
+
+        return Image.alpha_composite(input_image, mask_image)
 
     def predict_control(self, sensor_data):
         rgb_array = sensor_data['MainCameraRGB'].data.copy()
@@ -51,6 +72,6 @@ class L5Agent(Agent):
         predicted_steer = y.item()
 
         control = VehicleControl()
-        control.throttle = 0.5
+        control.throttle = 0.3
         control.steer = predicted_steer
         return control

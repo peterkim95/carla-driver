@@ -145,6 +145,7 @@ class CarlaGame(object):
         self._timer = None
         self._display = None
         self._main_image = None
+        self._visual_backprop = None
         self._mini_view_image1 = None
         self._mini_view_image2 = None
         self._enable_autopilot = args.autopilot
@@ -237,7 +238,9 @@ class CarlaGame(object):
         control = VehicleControl()
         if 'MainCameraRGB' in sensor_data:
             directions, target = None, None # TODO: Use planner to get these
-            control = self.agent.run_step(measurements, sensor_data, directions, target)
+            control, heatmap = self.agent.run_step(measurements, sensor_data, directions, target)
+            self._visual_backprop = heatmap
+
         # Intervene freely
         manual_control = self._get_keyboard_control(pygame.key.get_pressed())
 
@@ -327,10 +330,17 @@ class CarlaGame(object):
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
             self._display.blit(surface, (0, 0))
 
+        if self._visual_backprop is not None:
+            array = np.asarray(self._visual_backprop.convert('RGB')) # (66, 200, 3)
+            surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+            self._display.blit(surface, ((WINDOW_WIDTH / 2)-(MINI_WINDOW_HEIGHT / 2)-150, 450))
+            # self._display.blit(surface, (gap_x, mini_image_y))
+
         if self._mini_view_image1 is not None:
             # array = image_converter.depth_to_logarithmic_grayscale(self._mini_view_image1)
             array = image_converter.to_rgb_array(self._mini_view_image1)
             surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+            # self._display.blit(surface, (0, 0))
             self._display.blit(surface, (gap_x, mini_image_y))
 
         if self._mini_view_image2 is not None:
