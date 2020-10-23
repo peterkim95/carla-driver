@@ -160,12 +160,33 @@ def run_carla_client(args):
                             augmented_label_key = label_key + '_augmented'
                             translated_img.save(augmented_filename)
                             episode_label[augmented_label_key] = control_dict
+
                         elif name == 'RGBRight':
                             control_dict['steer'] = -0.25
                             episode_label[label_key] = control_dict
+
+                            img = Image.open(filename + '.png')
+                            translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
+                            control_dict['steer'] = translated_steering_angle
+
+                            augmented_filename = args.out_filename_format.format(episode, name, frame) + '_augmented.png'
+                            augmented_label_key = label_key + '_augmented'
+                            translated_img.save(augmented_filename)
+                            episode_label[augmented_label_key] = control_dict
+
                         elif name == 'RGBLeft':
                             control_dict['steer'] = 0.25
                             episode_label[label_key] = control_dict
+
+                            img = Image.open(filename + '.png')
+                            translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
+                            control_dict['steer'] = translated_steering_angle
+
+                            augmented_filename = args.out_filename_format.format(episode, name, frame) + '_augmented.png'
+                            augmented_label_key = label_key + '_augmented'
+                            translated_img.save(augmented_filename)
+                            episode_label[augmented_label_key] = control_dict
+
                         else:
                             raise Exception('Unknown Sensor')
 
