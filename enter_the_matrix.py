@@ -232,16 +232,6 @@ class CarlaGame(object):
 
             self._timer.lap()
 
-        # No longer rely on manual keyboard input
-        # Get control data from autnomous agent
-        # First couple of frames have not yet initialized sensor_data so mute asking for prediction
-        control = VehicleControl()
-        if 'MainCameraRGB' in sensor_data:
-            directions, target = None, None # TODO: Use planner to get these
-            control, heatmap = self.agent.run_step(measurements, sensor_data, directions, target)
-            self._visual_backprop = heatmap
-
-        # Intervene freely
         manual_control = self._get_keyboard_control(pygame.key.get_pressed())
 
         # Set the player position
@@ -254,13 +244,14 @@ class CarlaGame(object):
 
         if manual_control is None:
             self._on_new_episode()
-
-        if control is None: # TODO: because of control meddling above, this no longer works
-            self._on_new_episode()
-        elif self._enable_autopilot:
-            self.client.send_control(measurements.player_measurements.autopilot_control)
+        elif self._enable_autopilot: # TODO: kinda works, you gotta spam the button
+            if 'MainCameraRGB' in sensor_data:
+                directions, target = None, None # TODO: Use planner to get these
+                autopilot_control, heatmap = self.agent.run_step(measurements, sensor_data, directions, target)
+                self._visual_backprop = heatmap
+                self.client.send_control(autopilot_control)
         else:
-            self.client.send_control(control)
+            self.client.send_control(manual_control)
 
     def _get_keyboard_control(self, keys):
         """

@@ -43,8 +43,11 @@ class L5Agent(Agent):
         input_image.putalpha(255) # add RGB + A dimension for composite
 
         mask_array = self.pilotnet.visual_mask.detach().squeeze().numpy().copy()
+        mask_array *= 30.0 # TODO: Hack to emphasize really light activations
         mask_array[mask_array < 0.2] = 0
         mask_image = Image.fromarray(np.uint8(cm.hot(mask_array) * 255))
+
+        # return mask_image
 
         # Convert black pixels into transparent pixels
         datas = mask_image.getdata()
