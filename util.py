@@ -1,8 +1,12 @@
 import os
 import errno
 from argparse import ArgumentParser
+from datetime import datetime
 
 import torch
+
+def get_current_datetime():
+    return datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
 
 def makedirs(name):
     try:

@@ -1,236 +1,31 @@
-from __future__ import print_function
+#!/usr/bin/env python
 
-import shutil
-import argparse
+# Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma de
+# Barcelona (UAB).
+#
+# This work is licensed under the terms of the MIT license.
+# For a copy, see <https://opensource.org/licenses/MIT>.
+
+import glob
+import os
+import sys
+
+try:
+    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+        sys.version_info.major,
+        sys.version_info.minor,
+        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
+except IndexError:
+    pass
+
+import carla
+
 import pickle
-import logging
 import random
+import argparse
 import time
-from datetime import datetime
 
-import numpy as np
-from PIL import Image
-
-from carla.client import make_carla_client
-from carla.sensor import Camera, Lidar
-from carla.settings import CarlaSettings
-from carla.tcp import TCPConnectionError
-from carla.util import print_over_same_line
-
-from util import makedirs
-from augment import translate_img
-
-def run_carla_client(args):
-    number_of_episodes = args.episodes
-    frames_per_episode = args.frames
-    
-    CAMERA_RGB_WIDTH = args.camera_rgb_width
-    CAMERA_RGB_HEIGHT = args.camera_rgb_height
-    # We assume the CARLA server is already waiting for a client to connect at
-    # host:port. To create a connection we can use the `make_carla_client`
-    # context manager, it creates a CARLA client object and starts the
-    # connection. It will throw an exception if something goes wrong. The
-    # context manager makes sure the connection is always cleaned up on exit.
-    with make_carla_client(args.host, args.port) as client:
-        print('CarlaClient connected')
-        
-        episode_start_time = time.perf_counter()
-        for episode in range(0, number_of_episodes):
-            # Start a new episode.
-
-            if args.settings_filepath is None:
-
-                # Create a CarlaSettings object. This object is a wrapper around
-                # the CarlaSettings.ini file. Here we set the configuration we
-                # want for the new episode.
-                settings = CarlaSettings()
-                settings.set(
-                    SynchronousMode=True,
-                    SendNonPlayerAgentsInfo=True,
-                    NumberOfVehicles=20,
-                    NumberOfPedestrians=40,
-                    WeatherId=1,
-                    # WeatherId=random.choice([1, 3, 7, 8, 14]),
-                    QualityLevel=args.quality_level)
-                settings.randomize_seeds()
-
-                # Now we want to add a couple of cameras to the player vehicle.
-                # We will collect the images produced by these cameras every
-                # frame.
-
-                # The center camera captures RGB images of the scene.
-                camera_center = Camera('RGBCenter')
-                # Set image resolution in pixels.
-                camera_center.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                # Set its position relative to the car in meters.
-                # TODO: Wish there was a better way to know how these values will actually translate in-game
-                camera_center.set_position(0.30, 0, 1.30)
-                settings.add_sensor(camera_center)
-
-                # Left RGB camera
-                camera_left = Camera('RGBLeft')
-                camera_left.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                camera_left.set_position(0.30, -0.75, 1.30)
-                settings.add_sensor(camera_left)
-
-                # Right RGB camera
-                camera_right = Camera('RGBRight')
-                camera_right.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                camera_right.set_position(0.30, 0.75, 1.30)
-                settings.add_sensor(camera_right)
-                
-                # Optional depth camera
-                if args.depth:
-                    camera1 = Camera('CameraDepth', PostProcessing='Depth')
-                    camera1.set_image_size(CAMERA_RGB_WIDTH, CAMERA_RGB_HEIGHT)
-                    camera1.set_position(0.30, 0, 1.30)
-                    settings.add_sensor(camera1)
-
-                # And maybe a crutch
-                if args.lidar:
-                    lidar = Lidar('Lidar32')
-                    lidar.set_position(0, 0, 2.50)
-                    lidar.set_rotation(0, 0, 0)
-                    lidar.set(
-                        Channels=32,
-                        Range=50,
-                        PointsPerSecond=100000,
-                        RotationFrequency=10,
-                        UpperFovLimit=10,
-                        LowerFovLimit=-30)
-                    settings.add_sensor(lidar)
-
-            else:
-
-                # Alternatively, we can load these settings from a file.
-                with open(args.settings_filepath, 'r') as fp:
-                    settings = fp.read()
-
-            # Now we load these settings into the server. The server replies
-            # with a scene description containing the available start spots for
-            # the player. Here we can provide a CarlaSettings object or a
-            # CarlaSettings.ini file as string.
-            scene = client.load_settings(settings)
-
-            # Choose one player start at random.
-            number_of_player_starts = len(scene.player_start_spots)
-            player_start = random.randint(0, max(0, number_of_player_starts - 1))
-
-            # Notify the server that we want to start the episode at the
-            # player_start index. This function blocks until the server is ready
-            # to start the episode.
-            print('Starting new episode...')
-            client.start_episode(player_start)
-
-            
-            # Initialize label dict in the episode.
-            episode_label = {}
-
-            # Iterate every frame in the episode.
-            for frame in range(0, frames_per_episode):
-
-                # Read the data produced by the server this frame.
-                measurements, sensor_data = client.read_data()
-
-                # Get autopilot control
-                autopilot_control = measurements.player_measurements.autopilot_control
-                # control.steer += random.uniform(-0.1, 0.1)
-
-                # Print some of the measurements.
-                print_measurements(measurements)
-
-                # Save the images to disk if requested.
-                if args.save_images_to_disk:
-                    for name, measurement in sensor_data.items():
-                        filename = args.out_filename_format.format(episode, name, frame)
-                        measurement.save_to_disk(filename)
-
-                        # Save label
-                        label_key = 'episode_{:0>4d}/{:s}/{:0>6d}'.format(episode, name, frame)
-                        control_dict = generate_control_dict(autopilot_control)
-                        if name == 'RGBCenter':
-                            # no modifications to autopilot control
-                            episode_label[label_key] = control_dict
-
-                            img = Image.open(filename + '.png')
-                            translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
-                            control_dict['steer'] = translated_steering_angle
-
-                            augmented_filename = args.out_filename_format.format(episode, name, frame) + '_augmented.png'
-                            augmented_label_key = label_key + '_augmented'
-                            translated_img.save(augmented_filename)
-                            episode_label[augmented_label_key] = control_dict
-
-                        elif name == 'RGBRight':
-                            control_dict['steer'] = -0.25
-                            episode_label[label_key] = control_dict
-
-                            img = Image.open(filename + '.png')
-                            translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
-                            control_dict['steer'] = translated_steering_angle
-
-                            augmented_filename = args.out_filename_format.format(episode, name, frame) + '_augmented.png'
-                            augmented_label_key = label_key + '_augmented'
-                            translated_img.save(augmented_filename)
-                            episode_label[augmented_label_key] = control_dict
-
-                        elif name == 'RGBLeft':
-                            control_dict['steer'] = 0.25
-                            episode_label[label_key] = control_dict
-
-                            img = Image.open(filename + '.png')
-                            translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
-                            control_dict['steer'] = translated_steering_angle
-
-                            augmented_filename = args.out_filename_format.format(episode, name, frame) + '_augmented.png'
-                            augmented_label_key = label_key + '_augmented'
-                            translated_img.save(augmented_filename)
-                            episode_label[augmented_label_key] = control_dict
-
-                        else:
-                            raise Exception('Unknown Sensor')
-
-
-                # We can access the encoded data of a given image as numpy
-                # array using its "data" property. For instance, to get the
-                # depth value (normalized) at pixel X, Y
-                #
-                #     depth_array = sensor_data['CameraDepth'].data
-                #     value_at_pixel = depth_array[Y, X]
-                #
-
-                # Now we have to send the instructions to control the vehicle.
-                # If we are in synchronous mode the server will pause the
-                # simulation until we send this control.
-
-                if not args.autopilot:
-                    print('sending dummy control')
-                    client.send_control(
-                        steer=random.uniform(-1.0, 1.0),
-                        throttle=0.5,
-                        brake=0.0,
-                        hand_brake=False,
-                        reverse=False)
-
-                else:
-
-                    # Together with the measurements, the server has sent the
-                    # control that the in-game autopilot would do this frame. We
-                    # can enable autopilot by sending back this control to the
-                    # server. We can modify it if wanted, here for instance we
-                    # will add some noise to the steer.
-
-                    # control = measurements.player_measurements.autopilot_control
-                    # TODO: Does random steering jitter add human-ness?
-                    # control.steer += random.uniform(-0.1, 0.1)
-                    client.send_control(autopilot_control)
-
-            # Save episode label dict.
-            with open(args.out_labelname_format.format(episode), 'wb') as f:
-                pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
-
-            print(f'epsiode elapsed time: {time.perf_counter() - episode_start_time:0.2f}')
-
+from util import get_current_datetime
 
 def generate_control_dict(control):
     control_dict = {
@@ -242,145 +37,145 @@ def generate_control_dict(control):
     }
     return control_dict
 
+def main(args):
+    actor_list = []
 
-def print_measurements(measurements):
-    number_of_agents = len(measurements.non_player_agents)
-    player_measurements = measurements.player_measurements
-    message = 'Vehicle at ({pos_x:.1f}, {pos_y:.1f}, {pos_z:.1f}), '
-    message += '{speed:.0f} km/h, '
-    message += 'Collision: {{vehicles={col_cars:.0f}, pedestrians={col_ped:.0f}, other={col_other:.0f}}}, '
-    message += '{other_lane:.0f}% other lane, {offroad:.0f}% off-road, '
-    message += '({agents_num:d} non-player agents in the scene)'
-    message = message.format(
-        pos_x=player_measurements.transform.location.x,
-        pos_y=player_measurements.transform.location.y,
-        pos_z=player_measurements.transform.location.z,
-        speed=player_measurements.forward_speed * 3.6, # m/s -> km/h
-        col_cars=player_measurements.collision_vehicles,
-        col_ped=player_measurements.collision_pedestrians,
-        col_other=player_measurements.collision_other,
-        other_lane=100 * player_measurements.intersection_otherlane,
-        offroad=100 * player_measurements.intersection_offroad,
-        agents_num=number_of_agents)
-    print_over_same_line(message)
+    # In this tutorial script, we are going to add a vehicle to the simulation
+    # and let it drive in autopilot. We will also create a camera attached to
+    # that vehicle, and save all the images generated by the camera to disk.
+
+    try:
+        # First of all, we need to create the client that will send the requests
+        # to the simulator. Here we'll assume the simulator is accepting
+        # requests in the localhost at port 2000.
+        client = carla.Client('localhost', 2000)
+        client.set_timeout(2.0)
+
+        # Once we have a client we can retrieve the world that is currently
+        # running.
+        world = client.get_world()
+
+        original_settings = world.get_settings()
+        settings = world.get_settings()
+
+        settings.fixed_delta_seconds = 0.1 # https://carla.readthedocs.io/en/latest/adv_synchrony_timestep/#time-step-limitations
+        settings.synchronous_mode = True
+        world.apply_settings(settings)
+
+        # The world contains the list blueprints that we can use for adding new
+        # actors into the simulation.
+        blueprint_library = world.get_blueprint_library()
+
+        # Now let's filter all the blueprints of type 'vehicle' and choose one
+        # at random.
+        bp = random.choice(blueprint_library.filter('vehicle'))
+
+        # A blueprint contains the list of attributes that define a vehicle's
+        # instance, we can read them and modify some of them. For instance,
+        # let's randomize its color.
+        if bp.has_attribute('color'):
+            color = random.choice(bp.get_attribute('color').recommended_values)
+            bp.set_attribute('color', color)
+
+        # Now we need to give an initial transform to the vehicle. We choose a
+        # random transform from the list of recommended spawn points of the map.
+        transform = random.choice(world.get_map().get_spawn_points())
+
+        # So let's tell the world to spawn the vehicle.
+        vehicle = world.spawn_actor(bp, transform)
+
+        # It is important to note that the actors we create won't be destroyed
+        # unless we call their "destroy" function. If we fail to call "destroy"
+        # they will stay in the simulation even after we quit the Python script.
+        # For that reason, we are storing all the actors we create so we can
+        # destroy them afterwards.
+        actor_list.append(vehicle)
+        print('created my %s' % vehicle.type_id)
+
+        # Let's put the vehicle to drive around.
+        # vehicle.set_autopilot(True)
+
+        # Let's add now a "depth" camera attached to the vehicle. Note that the
+        # transform we give here is now relative to the vehicle.
+        camera_bp = blueprint_library.find('sensor.camera.rgb')
+        camera_bp.set_attribute('sensor_tick', '0.1') # take frame every 1/10 of sec i.e. 10fps
+        camera_bp.set_attribute('enable_postprocess_effects', 'True')
+
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(camera)
+        print('created %s' % camera.type_id)
+
+        # Now we register the function that will be called each time the sensor
+        # receives an image. In this example we are saving the image to disk
+        # converting the pixels to gray-scale.
+        # cc = carla.ColorConverter.LogarithmicDepth # for depth
+
+        current_datetime = get_current_datetime()
+        camera.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/CenterRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
+
+        # But the city now is probably quite empty, let's add a few more
+        # vehicles.
+        # transform.location += carla.Location(x=40, y=-3.2)
+        # transform.rotation.yaw = -180.0
+        num_of_npcs = 20
+        npc_list = []
+        for _ in range(num_of_npcs):
+            # transform.location.x += 8.0
+            npc_bp = random.choice(blueprint_library.filter('vehicle'))
+            npc_transform = random.choice(world.get_map().get_spawn_points())
+            # This time we are using try_spawn_actor. If the spot is already
+            # occupied by another object, the function will return None.
+            npc = world.try_spawn_actor(npc_bp, npc_transform)
+            if npc is not None:
+                actor_list.append(npc)
+                npc_list.append(npc)
+                npc.set_autopilot(True)
+                print('created %s' % npc.type_id)
+
+        label = {}
+        for _ in range(args.frames):
+            # TODO: 'remind' these guys to move!
+            vehicle.set_autopilot(True)
+            for a in npc_list:
+                a.set_autopilot(True)
+
+            world.tick()
+            w_frame = world.get_snapshot().frame
+            label[f'{w_frame:06d}'] = generate_control_dict(vehicle.get_control())
+            # print("\nWorld's frame: %d" % w_frame)
+            # print(vehicle.get_control())
+
+        print('all frames collected')
+        with open(f'data/{current_datetime}/label.pickle', 'wb') as f:
+            pickle.dump(label, f, pickle.HIGHEST_PROTOCOL)
+        print('label saved')
+
+    finally:
+        world.apply_settings(original_settings)
+        print('destroying actors')
+        for actor in actor_list:
+            actor.destroy()
+        print('done.')
 
 
-def get_current_datetime():
-    return datetime.now().strftime('%Y-%m-%d--%H-%M-%S')
-
-
-def main():
-    argparser = argparse.ArgumentParser(description=__doc__)
-    argparser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        dest='debug',
-        help='print debug information')
-    argparser.add_argument(
-        '--host',
-        metavar='H',
-        default='localhost',
-        help='IP of the host server (default: localhost)')
-    argparser.add_argument(
-        '-p', '--port',
-        metavar='P',
-        default=2000,
-        type=int,
-        help='TCP port to listen to (default: 2000)')
-    argparser.add_argument(
-        '-a', '--autopilot',
-        action='store_true',
-        help='enable autopilot')
-    argparser.add_argument(
-        '-d', '--depth',
-        action='store_true',
-        help='enable depth camera')
-    argparser.add_argument(
-        '-l', '--lidar',
-        action='store_true',
-        help='enable Lidar')
-    argparser.add_argument(
-        '-q', '--quality-level',
-        choices=['Low', 'Epic'],
-        type=lambda s: s.title(),
-        default='Epic',
-        help='graphics quality level, a lower level makes the simulation run considerably faster.')
-    argparser.add_argument(
-        '-i', '--images-to-disk',
-        action='store_true',
-        dest='save_images_to_disk',
-        help='save images (and Lidar data if active) to disk')
-    argparser.add_argument(
-        '-c', '--carla-settings',
-        metavar='PATH',
-        dest='settings_filepath',
-        default=None,
-        help='Path to a "CarlaSettings.ini" file')
+if __name__ == '__main__':
+    argparser = argparse.ArgumentParser()
     argparser.add_argument(
         '-r', '--split_ratio',
         default=0.8,
         type=float,
         help='train val split ratio')
     argparser.add_argument(
-        '-e', '--episodes',
-        default=3,
+        '-t', '--time_to_run',
+        default=5,
         type=int,
-        help='# of epsiodes to run')
+        help='time for data collection vehicle to run')
     argparser.add_argument(
         '-f', '--frames',
         default=300,
         type=int,
-        help='# of frames per episode')
-    argparser.add_argument(
-        '--camera_rgb_width',
-        default=800,
-        type=int,
-        help='width of rgb camera')
-    argparser.add_argument(
-        '--camera_rgb_height',
-        default=600,
-        type=int,
-        help='height of rgb camera')
-    args = argparser.parse_args()
+        help='# of frames')
+    args =  argparser.parse_args()
+    main(args)
 
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-
-    logging.info('listening to server %s:%s', args.host, args.port)
-
-    current_datetime = get_current_datetime()
-    args.out_filename_format = 'data/' + current_datetime + '/episode_{:0>4d}/{:s}/{:0>6d}'
-    args.out_labelname_format = 'data/' + current_datetime + '/episode_{:0>4d}/label.pickle'
-
-    while True:
-        try:
-            run_carla_client(args)
-            print('Finished simulation.')
-
-            split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
-            print('Done.')
-            return
-
-        except TCPConnectionError as error:
-            logging.error(error)
-            time.sleep(1)
-
-def split_data(data_path, max_episodes, split_ratio):
-    makedirs(f'{data_path}/train')
-    makedirs(f'{data_path}/val')
-    
-    episodes = np.arange(max_episodes)
-    np.random.shuffle(episodes)
-    idx = int(max_episodes * split_ratio)
-    train, val = episodes[:idx], episodes[idx:]
-
-    for e in train:
-        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/train/episode_{e:0>4d}')
-    for e in val:
-        shutil.move(f'{data_path}/episode_{e:0>4d}', f'{data_path}/val/episode_{e:0>4d}')
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print('\nCancelled by user. Bye!')
