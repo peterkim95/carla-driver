@@ -92,27 +92,34 @@ def main(args):
         actor_list.append(vehicle)
         print('created my %s' % vehicle.type_id)
 
-        # Let's put the vehicle to drive around.
-        # vehicle.set_autopilot(True)
-
-        # Let's add now a "depth" camera attached to the vehicle. Note that the
-        # transform we give here is now relative to the vehicle.
+        # RGB Blueprint
         camera_bp = blueprint_library.find('sensor.camera.rgb')
         camera_bp.set_attribute('sensor_tick', '0.1') # take frame every 1/10 of sec i.e. 10fps
         camera_bp.set_attribute('enable_postprocess_effects', 'True')
 
-        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
-        camera = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-        actor_list.append(camera)
-        print('created %s' % camera.type_id)
-
-        # Now we register the function that will be called each time the sensor
-        # receives an image. In this example we are saving the image to disk
-        # converting the pixels to gray-scale.
-        # cc = carla.ColorConverter.LogarithmicDepth # for depth
-
+        # Get current datetime for versioning
         current_datetime = get_current_datetime()
-        camera.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/CenterRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
+
+        # CenterRGB
+        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        center_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(center_rgb)
+        print('created %s' % center_rgb.type_id)
+        center_rgb.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/CenterRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
+
+        # LeftRGB
+        camera_transform = carla.Transform(carla.Location(x=1.5, y=-0.75, z=2.4))
+        left_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(left_rgb)
+        print('created %s' % left_rgb.type_id)
+        left_rgb.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/LeftRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
+
+        # RightRGB
+        camera_transform = carla.Transform(carla.Location(x=1.5, y=0.75, z=2.4))
+        right_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(right_rgb)
+        print('created %s' % right_rgb.type_id)
+        right_rgb.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/RightRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
 
         # But the city now is probably quite empty, let's add a few more
         # vehicles.
@@ -173,7 +180,7 @@ if __name__ == '__main__':
         help='time for data collection vehicle to run')
     argparser.add_argument(
         '-f', '--frames',
-        default=300,
+        default=100,
         type=int,
         help='# of frames')
     args =  argparser.parse_args()
