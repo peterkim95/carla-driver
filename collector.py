@@ -55,6 +55,9 @@ def main(args):
         # running.
         world = client.get_world()
 
+        world = client.load_world('Town04')
+        world.set_weather(carla.WeatherParameters.ClearNoon)
+
         original_settings = world.get_settings()
         settings = world.get_settings()
 
