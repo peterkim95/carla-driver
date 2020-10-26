@@ -67,8 +67,10 @@ def main(args):
         blueprint_library = world.get_blueprint_library()
 
         # Now let's filter all the blueprints of type 'vehicle' and choose one
-        # at random.
-        bp = random.choice(blueprint_library.filter('vehicle'))
+        # at random. Exclude all bikes
+        vehicles = blueprint_library.filter('vehicle.*')
+        cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
+        bp = random.choice(cars)
 
         # A blueprint contains the list of attributes that define a vehicle's
         # instance, we can read them and modify some of them. For instance,
@@ -101,21 +103,21 @@ def main(args):
         current_datetime = get_current_datetime()
 
         # CenterRGB
-        camera_transform = carla.Transform(carla.Location(x=1.5, z=2.4))
+        camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7))
         center_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
         actor_list.append(center_rgb)
         print('created %s' % center_rgb.type_id)
         center_rgb.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/CenterRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
 
         # LeftRGB
-        camera_transform = carla.Transform(carla.Location(x=1.5, y=-0.75, z=2.4))
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=-1.25, z=1.7))
         left_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
         actor_list.append(left_rgb)
         print('created %s' % left_rgb.type_id)
         left_rgb.listen(lambda image: image.save_to_disk(f'data/{current_datetime}/LeftRGB/{image.frame:06d}.png', carla.ColorConverter.Raw))
 
         # RightRGB
-        camera_transform = carla.Transform(carla.Location(x=1.5, y=0.75, z=2.4))
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=1.25, z=1.7))
         right_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
         actor_list.append(right_rgb)
         print('created %s' % right_rgb.type_id)
