@@ -27,9 +27,15 @@ import time
 
 from util import get_current_datetime
 
-def generate_control_dict(control):
+def generate_control_dict(control, offset):
+    delta = 0.0
+    if offset == 'left':
+        delta = 0.25
+    elif offset == 'right':
+        delta = -0.25
+
     control_dict = {
-        'steer': control.steer,
+        'steer': control.steer + delta,
         'throttle': control.throttle,
         'brake': control.brake,
         'hand_brake': control.hand_brake,
@@ -154,7 +160,15 @@ def main(args):
 
             world.tick()
             w_frame = world.get_snapshot().frame
-            label[f'{w_frame:06d}'] = generate_control_dict(vehicle.get_control())
+
+            control_dict = generate_control_dict(vehicle.get_control(), offset='center')
+            label[f'CenterRGB/{w_frame:06d}'] = control_dict
+
+            control_dict = generate_control_dict(vehicle.get_control(), offset='left')
+            label[f'LeftRGB/{w_frame:06d}'] = control_dict
+
+            control_dict = generate_control_dict(vehicle.get_control(), offset='right')
+            label[f'RightRGB/{w_frame:06d}'] = control_dict
             # print("\nWorld's frame: %d" % w_frame)
             # print(vehicle.get_control())
 
