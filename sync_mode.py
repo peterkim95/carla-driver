@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-
-# Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB).
-#
-# This work is licensed under the terms of the MIT license.
-# For a copy, see <https://opensource.org/licenses/MIT>.
-
 import glob
 import os
 import sys
@@ -21,11 +13,7 @@ except IndexError:
 import carla
 
 import random
-
-try:
-    import pygame
-except ImportError:
-    raise RuntimeError('cannot import pygame, make sure pygame package is installed')
+import argparse
 
 try:
     import numpy as np
@@ -37,18 +25,9 @@ try:
 except ImportError:
     import Queue as queue
 
+from util import get_current_datetime
 
 class CarlaSyncMode(object):
-    """
-    Context manager to synchronize output from different sensors. Synchronous
-    mode is enabled as long as we are inside this context
-
-        with CarlaSyncMode(world, sensors) as sync_mode:
-            while True:
-                data = sync_mode.tick(timeout=1.0)
-
-    """
-
     def __init__(self, world, *sensors, **kwargs):
         self.world = world
         self.sensors = sensors
@@ -89,119 +68,108 @@ class CarlaSyncMode(object):
             if data.frame == self.frame:
                 return data
 
-
-def draw_image(surface, image, blend=False):
-    array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
-    array = np.reshape(array, (image.height, image.width, 4))
-    array = array[:, :, :3]
-    array = array[:, :, ::-1]
-    image_surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
-    if blend:
-        image_surface.set_alpha(100)
-    surface.blit(image_surface, (0, 0))
-
-
-def get_font():
-    fonts = [x for x in pygame.font.get_fonts()]
-    default_font = 'ubuntumono'
-    font = default_font if default_font in fonts else fonts[0]
-    font = pygame.font.match_font(font)
-    return pygame.font.Font(font, 14)
-
-
-def should_quit():
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            return True
-        elif event.type == pygame.KEYUP:
-            if event.key == pygame.K_ESCAPE:
-                return True
-    return False
-
-
 def main():
-    actor_list = []
-    pygame.init()
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument(
+        '-r', '--split_ratio',
+        default=0.8,
+        type=float,
+        help='train val split ratio')
+    argparser.add_argument(
+        '-t', '--time_to_run',
+        default=5,
+        type=int,
+        help='time for data collection vehicle to run')
+    argparser.add_argument(
+        '-m', '--map',
+        default='Town04',
+        type=str,
+        help='town to drive in')
+    argparser.add_argument(
+        '-f', '--frames',
+        default=100,
+        type=int,
+        help='# of frames')
+    args =  argparser.parse_args()
 
-    display = pygame.display.set_mode(
-        (800, 600),
-        pygame.HWSURFACE | pygame.DOUBLEBUF)
-    font = get_font()
-    clock = pygame.time.Clock()
+    actor_list = []
 
     client = carla.Client('localhost', 2000)
     client.set_timeout(2.0)
 
     world = client.get_world()
+    world = client.load_world(args.map)
+    world.set_weather(carla.WeatherParameters.ClearNoon)
+
+    # Get current datetime for versioning
+    current_datetime = get_current_datetime()
 
     try:
         m = world.get_map()
-        start_pose = random.choice(m.get_spawn_points())
-        waypoint = m.get_waypoint(start_pose.location)
 
         blueprint_library = world.get_blueprint_library()
 
-        vehicle = world.spawn_actor(
-            random.choice(blueprint_library.filter('vehicle.*')),
-            start_pose)
+        vehicles = blueprint_library.filter('vehicle.*')
+        cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
+        bp = random.choice(cars)
+
+        vehicle_transform = random.choice(m.get_spawn_points())
+
+        # Spawn test vehicle at start pose
+        vehicle = world.spawn_actor(bp, vehicle_transform)
+
         actor_list.append(vehicle)
-        vehicle.set_simulate_physics(False)
+        print(f'created my {vehicle.type_id}')
 
-        camera_rgb = world.spawn_actor(
-            blueprint_library.find('sensor.camera.rgb'),
-            carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
-            attach_to=vehicle)
-        actor_list.append(camera_rgb)
+        vehicle.set_autopilot(True)
 
-        camera_semseg = world.spawn_actor(
-            blueprint_library.find('sensor.camera.semantic_segmentation'),
-            carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15)),
-            attach_to=vehicle)
-        actor_list.append(camera_semseg)
+        # RGB Blueprint
+        camera_bp = blueprint_library.find('sensor.camera.rgb')
+        camera_bp.set_attribute('enable_postprocess_effects', 'True')
 
+        # CenterRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7))
+        center_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(center_rgb)
+        print(f'created center {center_rgb.type_id}')
+
+        # LeftRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=-1.25, z=1.7))
+        left_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(left_rgb)
+        print(f'created left {left_rgb.type_id}')
+
+        # RightRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=1.25, z=1.7))
+        right_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(right_rgb)
+        print(f'created right {right_rgb.type_id}')
+	
         # Create a synchronous mode context.
-        with CarlaSyncMode(world, camera_rgb, camera_semseg, fps=30) as sync_mode:
-            while True:
-                if should_quit():
-                    return
-                clock.tick()
+        with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
+            for _ in range(args.frames):
 
                 # Advance the simulation and wait for the data.
-                snapshot, image_rgb, image_semseg = sync_mode.tick(timeout=2.0)
+                snapshot, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
+                w_frame = snapshot.frame
+                print(w_frame, vehicle.get_control())
 
-                # Choose the next waypoint and update the car location.
-                waypoint = random.choice(waypoint.next(1.5))
-                vehicle.set_transform(waypoint.transform)
+                # Save Images
+                center_rgb_img.save_to_disk(f'data/{current_datetime}/CenterRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
+                left_rgb_img.save_to_disk(f'data/{current_datetime}/LeftRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
+                right_rgb_img.save_to_disk(f'data/{current_datetime}/RightRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
 
-                image_semseg.convert(carla.ColorConverter.CityScapesPalette)
-                fps = round(1.0 / snapshot.timestamp.delta_seconds)
-
-                # Draw the display.
-                draw_image(display, image_rgb)
-                draw_image(display, image_semseg, blend=True)
-                display.blit(
-                    font.render('% 5d FPS (real)' % clock.get_fps(), True, (255, 255, 255)),
-                    (8, 10))
-                display.blit(
-                    font.render('% 5d FPS (simulated)' % fps, True, (255, 255, 255)),
-                    (8, 28))
-                pygame.display.flip()
-
+        print('all frames simulated')
     finally:
-
         print('destroying actors.')
         for actor in actor_list:
             actor.destroy()
 
-        pygame.quit()
+        # pygame.quit()
         print('done.')
 
-
 if __name__ == '__main__':
-
     try:
-
         main()
-
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
