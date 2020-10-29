@@ -120,87 +120,89 @@ def main():
     # Get current datetime for versioning
     current_datetime = get_current_datetime()
     
-    for e in range(args.episodes):
-        print(f'Starting episode {e:0>4d}')
-        try:
-            m = world.get_map()
+    try:
+        m = world.get_map()
 
-            blueprint_library = world.get_blueprint_library()
+        blueprint_library = world.get_blueprint_library()
 
-            vehicles = blueprint_library.filter('vehicle.*')
-            cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
-            bp = random.choice(cars)
+        vehicles = blueprint_library.filter('vehicle.*')
+        cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
+        bp = random.choice(cars)
 
-            vehicle_transform = random.choice(m.get_spawn_points())
+        vehicle_transform = random.choice(m.get_spawn_points())
 
-            # Spawn test vehicle at start pose
-            vehicle = world.spawn_actor(bp, vehicle_transform)
+        # Spawn test vehicle at start pose
+        vehicle = world.spawn_actor(bp, vehicle_transform)
 
-            actor_list.append(vehicle)
-            print(f'created my {vehicle.type_id}')
+        actor_list.append(vehicle)
+        print(f'created my {vehicle.type_id}')
 
-            vehicle.set_autopilot(True)
+        vehicle.set_autopilot(True)
 
-            # RGB Blueprint
-            camera_bp = blueprint_library.find('sensor.camera.rgb')
-            camera_bp.set_attribute('enable_postprocess_effects', 'True')
+        # RGB Blueprint
+        camera_bp = blueprint_library.find('sensor.camera.rgb')
+        camera_bp.set_attribute('enable_postprocess_effects', 'True')
 
-            # CenterRGB
-            camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7))
-            center_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-            actor_list.append(center_rgb)
-            print(f'created center {center_rgb.type_id}')
+        # CenterRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, z=1.7))
+        center_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(center_rgb)
+        print(f'created center {center_rgb.type_id}')
 
-            # LeftRGB
-            camera_transform = carla.Transform(carla.Location(x=1.6, y=-1.25, z=1.7))
-            left_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-            actor_list.append(left_rgb)
-            print(f'created left {left_rgb.type_id}')
+        # LeftRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=-1.25, z=1.7))
+        left_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(left_rgb)
+        print(f'created left {left_rgb.type_id}')
 
-            # RightRGB
-            camera_transform = carla.Transform(carla.Location(x=1.6, y=1.25, z=1.7))
-            right_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
-            actor_list.append(right_rgb)
-            print(f'created right {right_rgb.type_id}')
-            
-            episode_label = {}
+        # RightRGB
+        camera_transform = carla.Transform(carla.Location(x=1.6, y=1.25, z=1.7))
+        right_rgb = world.spawn_actor(camera_bp, camera_transform, attach_to=vehicle)
+        actor_list.append(right_rgb)
+        print(f'created right {right_rgb.type_id}')
+        
 
-            # Create a synchronous mode context.
-            with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
-                for _ in range(args.frames):
+        # Create a synchronous mode context.
+        with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
+            for e in range(args.episodes):
+                print(f'starting episode {e:0>4d}')
+                episode_label = {}
+                for f in range(args.frames):
 
                     # Advance the simulation and wait for the data.
-                    snapshot, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
-                    print(snapshot, vehicle.get_control())
-                    w_frame = snapshot.frame
+                    _, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
                     control_dict = generate_control_dict(vehicle.get_control())
+                    print(f, control_dict)
 
                     # Save Images
-                    center_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/CenterRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
-                    episode_label[f'episode_{e:0>4d}/CenterRGB/{w_frame:06d}'] = control_dict
+                    center_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/CenterRGB/{f:06d}.png', carla.ColorConverter.Raw)
+                    episode_label[f'episode_{e:0>4d}/CenterRGB/{f:06d}'] = control_dict
 
-                    left_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/LeftRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
+                    left_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/LeftRGB/{f:06d}.png', carla.ColorConverter.Raw)
                     control_dict['steer'] = 0.25
-                    episode_label[f'episode_{e:0>4d}/LeftRGB/{w_frame:06d}'] = control_dict
+                    episode_label[f'episode_{e:0>4d}/LeftRGB/{f:06d}'] = control_dict
 
-                    right_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/RightRGB/{w_frame:06d}.png', carla.ColorConverter.Raw)
+                    right_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/RightRGB/{f:06d}.png', carla.ColorConverter.Raw)
                     control_dict['steer'] = -0.25
-                    episode_label[f'episode_{e:0>4d}/RightRGB/{w_frame:06d}'] = control_dict
+                    episode_label[f'episode_{e:0>4d}/RightRGB/{f:06d}'] = control_dict
 
-            print('all frames simulated')
+                print('all frames simulated')
 
-            # Save episode label dict.
-            with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
-                pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
+                # Save episode label dict.
+                with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
+                    pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
 
-            print('saved episode label dict')
-        finally:
-            print('destroying actors.')
-            for actor in actor_list:
-                actor.destroy()
+                print('saved episode label dict')
 
-            # pygame.quit()
-            print('done.')
+                # Move vehicle to another random spawn point for the next episode
+                vehicle.set_transform(random.choice(m.get_spawn_points()))
+    finally:
+        print('destroying actors.')
+        for actor in actor_list:
+            actor.destroy()
+
+        # pygame.quit()
+        print('done.')
 
     split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
     print('finished')
