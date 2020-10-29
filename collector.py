@@ -16,10 +16,8 @@ import random
 import argparse
 import pickle
 
-try:
-    import numpy as np
-except ImportError:
-    raise RuntimeError('cannot import numpy, make sure numpy package is installed')
+from tqdm import trange
+import numpy as np
 
 try:
     import queue
@@ -165,14 +163,13 @@ def main():
         # Create a synchronous mode context.
         with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
             for e in range(args.episodes):
-                print(f'starting episode {e:0>4d}')
+                print(f'Episode {e}')
                 episode_label = {}
-                for f in range(args.frames):
+                for f in trange(args.frames):
 
                     # Advance the simulation and wait for the data.
                     _, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
                     control_dict = generate_control_dict(vehicle.get_control())
-                    print(f, control_dict)
 
                     # Save Images
                     center_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/CenterRGB/{f:06d}.png', carla.ColorConverter.Raw)
@@ -186,13 +183,9 @@ def main():
                     control_dict['steer'] = -0.25
                     episode_label[f'episode_{e:0>4d}/RightRGB/{f:06d}'] = control_dict
 
-                print('all frames simulated')
-
                 # Save episode label dict.
                 with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
                     pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
-
-                print('saved episode label dict')
 
                 # Move vehicle to another random spawn point for the next episode
                 vehicle.set_transform(random.choice(m.get_spawn_points()))
