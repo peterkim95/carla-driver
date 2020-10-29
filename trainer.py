@@ -4,7 +4,6 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from tutorialnet import TutorialNet
 from pilotnet import PilotNet, get_transform
 from dataset import DrivingDataset
 from util import get_args, save_checkpoint, makedirs
