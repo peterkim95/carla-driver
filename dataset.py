@@ -34,7 +34,7 @@ class DrivingDataset(Dataset):
         return X, y
 
     def preprocess_x(self, ID):
-        image = Image.open(f'{self.data_path}/{ID}.png')
+        image = Image.open(f'{self.data_path}/{ID}.png').convert('RGB')
         if self.transform:
             return self.transform(image)
 
