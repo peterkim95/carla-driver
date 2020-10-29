@@ -125,10 +125,10 @@ def main():
 
         blueprint_library = world.get_blueprint_library()
 
-        vehicles = blueprint_library.filter('vehicle.*')
-        cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
-        bp = random.choice(cars)
-
+        # vehicles = blueprint_library.filter('vehicle.*')
+        # cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
+        # bp = random.choice(cars)
+        bp = blueprint_library.find('vehicle.tesla.model3')
         vehicle_transform = random.choice(m.get_spawn_points())
 
         # Spawn test vehicle at start pose
