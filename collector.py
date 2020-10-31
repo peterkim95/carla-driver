@@ -67,7 +67,7 @@ class CarlaSyncMode(object):
             if data.frame == self.frame:
                 return data
 
-def generate_control_dict(control):
+def generate_control_dict(control, **delta):
     control_dict = {
         'steer': control.steer,
         'throttle': control.throttle,
@@ -75,6 +75,8 @@ def generate_control_dict(control):
         'hand_brake': control.hand_brake,
         'reverse': control.reverse
     }
+    for k, v in delta.items():
+        control_dict[k] += v
     return control_dict
 
 def main():
@@ -159,29 +161,37 @@ def main():
         actor_list.append(right_rgb)
         print(f'created right {right_rgb.type_id}')
         
+        # Init sensor list
+        sensor_name = ['CenterRGB', 'LeftRGB', 'RightRGB']
+
+        # Set data parent folder
+        parent_dir = f'data/{current_datetime}'
 
         # Create a synchronous mode context.
         with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
             for e in range(args.episodes):
                 print(f'Episode {e}')
+
                 episode_label = {}
+                episode_dir = f'episode_{e:0>4d}'
+
                 for f in trange(args.frames):
-
                     # Advance the simulation and wait for the data.
-                    _, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
-                    control_dict = generate_control_dict(vehicle.get_control())
+                    sensor_data = sync_mode.tick(timeout=5.0)
 
-                    # Save Images
-                    center_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/CenterRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    episode_label[f'episode_{e:0>4d}/CenterRGB/{f:06d}'] = control_dict
+                    center_control_dict = generate_control_dict(vehicle.get_control())
+                    left_control_dict = generate_control_dict(vehicle.get_control(), steer=0.25) 
+                    right_control_dict = generate_control_dict(vehicle.get_control(), steer=-0.25)
 
-                    left_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/LeftRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    control_dict['steer'] = 0.25
-                    episode_label[f'episode_{e:0>4d}/LeftRGB/{f:06d}'] = control_dict
-
-                    right_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/RightRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    control_dict['steer'] = -0.25
-                    episode_label[f'episode_{e:0>4d}/RightRGB/{f:06d}'] = control_dict
+                    for name, img_data in zip(sensor_name, sensor_data[1:]):
+                        label_key = f'{episode_dir}/{name}/{f:06d}'
+                        img_data.save_to_disk(f'{parent_dir}/{label_key}.png', carla.ColorConverter.Raw)
+                        if name == 'CenterRGB':
+                            episode_label[label_key] = center_control_dict
+                        elif name == 'LeftRGB':
+                            episode_label[label_key] = left_control_dict
+                        elif name == 'RightRGB':
+                            episode_label[label_key] = right_control_dict
 
                 # Save episode label dict.
                 with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
@@ -191,7 +201,7 @@ def main():
                 vehicle.set_transform(random.choice(m.get_spawn_points()))
 
         # Split episodes into train and val sets
-        split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
+        split_data(parent_dir, args.episodes, args.split_ratio)
     finally:
         print('destroying actors.')
         for actor in actor_list:
