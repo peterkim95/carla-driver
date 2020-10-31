@@ -18,6 +18,7 @@ import pickle
 
 from tqdm import trange
 import numpy as np
+from PIL import Image
 
 try:
     import queue
@@ -25,6 +26,7 @@ except ImportError:
     import Queue as queue
 
 from util import get_current_datetime, split_data
+from augment import translate_img
 
 class CarlaSyncMode(object):
     def __init__(self, world, *sensors, **kwargs):
@@ -182,16 +184,13 @@ def main():
                     center_control_dict = generate_control_dict(vehicle.get_control())
                     left_control_dict = generate_control_dict(vehicle.get_control(), steer=0.25) 
                     right_control_dict = generate_control_dict(vehicle.get_control(), steer=-0.25)
+                    control_data = [center_control_dict, left_control_dict, right_control_dict]
 
-                    for name, img_data in zip(sensor_name, sensor_data[1:]):
+                    for name, control_dict, img_data in zip(sensor_name, control_data, sensor_data[1:]):
                         label_key = f'{episode_dir}/{name}/{f:06d}'
                         img_data.save_to_disk(f'{parent_dir}/{label_key}.png', carla.ColorConverter.Raw)
-                        if name == 'CenterRGB':
-                            episode_label[label_key] = center_control_dict
-                        elif name == 'LeftRGB':
-                            episode_label[label_key] = left_control_dict
-                        elif name == 'RightRGB':
-                            episode_label[label_key] = right_control_dict
+                        episode_label[label_key] = control_dict
+
 
                 # Save episode label dict.
                 with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
