@@ -188,9 +188,18 @@ def main():
 
                     for name, control_dict, img_data in zip(sensor_name, control_data, sensor_data[1:]):
                         label_key = f'{episode_dir}/{name}/{f:06d}'
-                        img_data.save_to_disk(f'{parent_dir}/{label_key}.png', carla.ColorConverter.Raw)
+                        filename = f'{parent_dir}/{label_key}.png'
+                        img_data.save_to_disk(filename, carla.ColorConverter.Raw)
                         episode_label[label_key] = control_dict
 
+                        # Data Augmentation
+                        img = Image.open(filename)
+                        translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
+                        control_dict['steer'] = translated_steering_angle
+
+                        augmented_filename = f'{parent_dir}/{label_key}_augmented.png'
+                        translated_img.save(augmented_filename)
+                        episode_label[f'{label_key}_augmented'] = control_dict
 
                 # Save episode label dict.
                 with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
