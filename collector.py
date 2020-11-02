@@ -206,7 +206,9 @@ def main():
                     pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
 
                 # Move vehicle to another random spawn point for the next episode
+                vehicle.set_simulate_physics(False)
                 vehicle.set_transform(random.choice(m.get_spawn_points()))
+                vehicle.set_simulate_physics(True)
 
         # Split episodes into train and val sets
         split_data(parent_dir, args.episodes, args.split_ratio)
