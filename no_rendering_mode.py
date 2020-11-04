@@ -645,6 +645,12 @@ class MapImage(object):
                 elif markings[0] == carla.LaneMarkingType.Broken:
                     draw_broken_line(surface, markings[1], False, markings[2], 2)
 
+        def draw_text(surface, font_surface, transform, i):
+            pixel_pos = world_to_pixel(transform.location)
+            offset = font_surface.get_rect(center=(pixel_pos[0], pixel_pos[1]))
+            surface.blit(font_surface, offset)
+
+
         def draw_arrow(surface, transform, color=COLOR_ALUMINIUM_2):
             """ Draws an arrow with a specified color given a transform"""
             transform.rotation.yaw += 180
@@ -813,9 +819,6 @@ class MapImage(object):
         topology = carla_map.get_topology()
         draw_topology(topology, 0)
 
-        if self.show_spawn_points:
-            for i, sp in enumerate(carla_map.get_spawn_points()):
-                draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
 
         if self.show_connections:
             dist = 1.5
@@ -856,6 +859,13 @@ class MapImage(object):
 
         for ts_yield in yields:
             draw_traffic_signs(map_surface, yield_font_surface, ts_yield, trigger_color=COLOR_ORANGE_1)
+
+        if self.show_spawn_points:
+            for i, sp in enumerate(carla_map.get_spawn_points()):
+                text_font_surface = font.render(str(i), False, COLOR_ALUMINIUM_2)
+                draw_text(map_surface, text_font_surface, sp, i)
+                draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
+
 
     def world_to_pixel(self, location, offset=(0, 0)):
         """Converts the world coordinates to pixel coordinates"""
