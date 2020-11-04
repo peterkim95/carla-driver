@@ -647,7 +647,7 @@ class MapImage(object):
 
         def draw_text(surface, font_surface, transform, i):
             pixel_pos = world_to_pixel(transform.location)
-            offset = font_surface.get_rect(center=(pixel_pos[0], pixel_pos[1]))
+            offset = font_surface.get_rect(center=(pixel_pos[0], pixel_pos[1]-15))
             surface.blit(font_surface, offset)
 
 
@@ -862,9 +862,11 @@ class MapImage(object):
 
         if self.show_spawn_points:
             for i, sp in enumerate(carla_map.get_spawn_points()):
-                text_font_surface = font.render(str(i), False, COLOR_ALUMINIUM_2)
+                index_font_size = world_to_pixel_width(2)
+                index_font = pygame.font.SysFont('Arial', index_font_size, True)
+                text_font_surface = index_font.render(str(i), False, COLOR_ALUMINIUM_2)
                 draw_text(map_surface, text_font_surface, sp, i)
-                draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
+                # draw_arrow(map_surface, sp, color=COLOR_CHOCOLATE_0)
 
 
     def world_to_pixel(self, location, offset=(0, 0)):
