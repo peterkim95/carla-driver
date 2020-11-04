@@ -124,14 +124,16 @@ def main():
     
     try:
         m = world.get_map()
+        spawn_point = m.get_spawn_points()
+        good_spawn_indices = [224, 186, 320, 321, 220, 221, 273, 307, 298, 338, 308, 343, 342, 230]
+        spawn_index = 0
+        random.shuffle(good_spawn_indices)
 
         blueprint_library = world.get_blueprint_library()
 
-        # vehicles = blueprint_library.filter('vehicle.*')
-        # cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
-        # bp = random.choice(cars)
         bp = blueprint_library.find('vehicle.tesla.model3')
-        vehicle_transform = random.choice(m.get_spawn_points())
+        # vehicle_transform = random.choice(m.get_spawn_points())
+        vehicle_transform = spawn_point[good_spawn_indices[spawn_index]]
 
         # Spawn test vehicle at start pose
         vehicle = world.spawn_actor(bp, vehicle_transform)
@@ -181,6 +183,12 @@ def main():
                     # Advance the simulation and wait for the data.
                     sensor_data = sync_mode.tick(timeout=5.0)
 
+                    # No more stops at red light
+                    if vehicle.is_at_traffic_light():
+                        traffic_light = vehicle.get_traffic_light()
+                        if traffic_light.get_state() == carla.TrafficLightState.Red:
+                            traffic_light.set_state(carla.TrafficLightState.Green)
+
                     center_control_dict = generate_control_dict(vehicle.get_control())
                     left_control_dict = generate_control_dict(vehicle.get_control(), steer=0.25) 
                     right_control_dict = generate_control_dict(vehicle.get_control(), steer=-0.25)
@@ -207,7 +215,8 @@ def main():
 
                 # Move vehicle to another random spawn point for the next episode
                 vehicle.set_simulate_physics(False)
-                vehicle.set_transform(random.choice(m.get_spawn_points()))
+                spawn_index += 1
+                vehicle.set_transform(spawn_point[good_spawn_indices[spawn_index]])
                 vehicle.set_simulate_physics(True)
 
         # Split episodes into train and val sets
