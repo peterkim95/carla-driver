@@ -231,6 +231,7 @@ class World(object):
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
+        self.agent_sensor = AgentSensor(self.player, autopilot_enabled=False)
         self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
@@ -390,6 +391,7 @@ class KeyboardControl(object):
                         # world.player.set_autopilot(self._autopilot_enabled)
                         world.hud.notification(
                             'Autopilot %s' % ('On' if self._autopilot_enabled else 'Off'))
+                        world.agent_sensor.toggle_autopilot()
                     elif event.key == K_l and pygame.key.get_mods() & KMOD_CTRL:
                         current_lights ^= carla.VehicleLightState.Special1
                     elif event.key == K_l and pygame.key.get_mods() & KMOD_SHIFT:
@@ -439,8 +441,10 @@ class KeyboardControl(object):
             world.player.apply_control(self._control)
         else:
             # Get my autopilot control
-            autopilot_control, heatmap = world.agent.run_step(None, sensor_data, None, None)  
-            world.player.apply_control(autopilot_control)
+            pass
+            # print('keyboard')
+            # autopilot_control, heatmap = world.agent.run_step(None, sensor_data, None, None)  
+            # world.player.apply_control(autopilot_control)
 
     def _parse_vehicle_keys(self, keys, milliseconds):
         self._control.throttle = 1.0 if keys[K_UP] or keys[K_w] else 0.0
@@ -681,6 +685,32 @@ class HelpText(object):
         if self._render:
             display.blit(self.surface, self.pos)
 
+# ==============================================================================
+# -- AgentSensor -----------------------------------------------------------
+# ==============================================================================
+
+class AgentSensor(object):
+    def __init__(self, parent_actor, autopilot_enabled):
+        self._parent = parent_actor
+        world = self._parent.get_world()
+        blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
+        self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.6, z=1.7)), attach_to=self._parent, attachment_type=carla.AttachmentType.Rigid)
+        self.autopilot_enabled = autopilot_enabled
+        # We need to pass the lambda a weak reference to self to avoid circular
+        # reference.
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda image: AgentSensor._parse_image(weak_self, image))
+
+    def toggle_autopilot(self):
+        self.autopilot_enabled = not self.autopilot_enabled
+
+    @staticmethod
+    def _parse_image(weak_self, image):
+        self = weak_self()
+        if not self:
+            return
+        if self.autopilot_enabled:
+            image.save_to_disk(f'_out/{image.frame}.png')
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
