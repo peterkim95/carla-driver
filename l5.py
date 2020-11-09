@@ -3,14 +3,17 @@ from PIL import Image
 import numpy as np
 from matplotlib import cm
 
-from carla.agent.agent import Agent
-from carla.client import VehicleControl
+# TODO: update agent def - new carla version has different agent interface?
+# from carla.agent.agent import Agent
+# from carla.client import VehicleControl
+from carla import VehicleControl
 
 from pilotnet import PilotNet, get_transform, get_truncated_transform
 
-class L5Agent(Agent):
+# class L5Agent(Agent):
+class L5Agent:
     def __init__(self, net_path):
-        super().__init__()
+        # super().__init__()
         self.pilotnet = PilotNet()
         self.pilotnet.load_state_dict(torch.load(net_path))
         print(f'{net_path} load success')
