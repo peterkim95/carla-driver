@@ -18,6 +18,7 @@ import pickle
 
 from tqdm import trange
 import numpy as np
+from PIL import Image
 
 try:
     import queue
@@ -25,6 +26,7 @@ except ImportError:
     import Queue as queue
 
 from util import get_current_datetime, split_data
+from augment import translate_img
 
 class CarlaSyncMode(object):
     def __init__(self, world, *sensors, **kwargs):
@@ -67,7 +69,7 @@ class CarlaSyncMode(object):
             if data.frame == self.frame:
                 return data
 
-def generate_control_dict(control):
+def generate_control_dict(control, **delta):
     control_dict = {
         'steer': control.steer,
         'throttle': control.throttle,
@@ -75,6 +77,8 @@ def generate_control_dict(control):
         'hand_brake': control.hand_brake,
         'reverse': control.reverse
     }
+    for k, v in delta.items():
+        control_dict[k] += v
     return control_dict
 
 def main():
@@ -120,14 +124,16 @@ def main():
     
     try:
         m = world.get_map()
+        spawn_point = m.get_spawn_points()
+        good_spawn_indices = [224, 186, 320, 321, 220, 221, 273, 307, 298, 338, 308, 343, 342, 230]
+        spawn_index = 0
+        random.shuffle(good_spawn_indices)
 
         blueprint_library = world.get_blueprint_library()
 
-        # vehicles = blueprint_library.filter('vehicle.*')
-        # cars = [v for v in vehicles if int(v.get_attribute('number_of_wheels')) != 2]
-        # bp = random.choice(cars)
         bp = blueprint_library.find('vehicle.tesla.model3')
-        vehicle_transform = random.choice(m.get_spawn_points())
+        # vehicle_transform = random.choice(m.get_spawn_points())
+        vehicle_transform = spawn_point[good_spawn_indices[spawn_index]]
 
         # Spawn test vehicle at start pose
         vehicle = world.spawn_actor(bp, vehicle_transform)
@@ -159,39 +165,62 @@ def main():
         actor_list.append(right_rgb)
         print(f'created right {right_rgb.type_id}')
         
+        # Init sensor list
+        sensor_name = ['CenterRGB', 'LeftRGB', 'RightRGB']
+
+        # Set data parent folder
+        parent_dir = f'data/{current_datetime}'
 
         # Create a synchronous mode context.
         with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
             for e in range(args.episodes):
                 print(f'Episode {e}')
+
                 episode_label = {}
+                episode_dir = f'episode_{e:0>4d}'
+
                 for f in trange(args.frames):
-
                     # Advance the simulation and wait for the data.
-                    _, center_rgb_img, left_rgb_img, right_rgb_img = sync_mode.tick(timeout=5.0)
-                    control_dict = generate_control_dict(vehicle.get_control())
+                    sensor_data = sync_mode.tick(timeout=5.0)
 
-                    # Save Images
-                    center_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/CenterRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    episode_label[f'episode_{e:0>4d}/CenterRGB/{f:06d}'] = control_dict
+                    # No more stops at red light
+                    if vehicle.is_at_traffic_light():
+                        traffic_light = vehicle.get_traffic_light()
+                        if traffic_light.get_state() == carla.TrafficLightState.Red:
+                            traffic_light.set_state(carla.TrafficLightState.Green)
 
-                    left_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/LeftRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    control_dict['steer'] = 0.25
-                    episode_label[f'episode_{e:0>4d}/LeftRGB/{f:06d}'] = control_dict
+                    center_control_dict = generate_control_dict(vehicle.get_control())
+                    left_control_dict = generate_control_dict(vehicle.get_control(), steer=0.25) 
+                    right_control_dict = generate_control_dict(vehicle.get_control(), steer=-0.25)
+                    control_data = [center_control_dict, left_control_dict, right_control_dict]
 
-                    right_rgb_img.save_to_disk(f'data/{current_datetime}/episode_{e:0>4d}/RightRGB/{f:06d}.png', carla.ColorConverter.Raw)
-                    control_dict['steer'] = -0.25
-                    episode_label[f'episode_{e:0>4d}/RightRGB/{f:06d}'] = control_dict
+                    for name, control_dict, img_data in zip(sensor_name, control_data, sensor_data[1:]):
+                        label_key = f'{episode_dir}/{name}/{f:06d}'
+                        filename = f'{parent_dir}/{label_key}.png'
+                        img_data.save_to_disk(filename, carla.ColorConverter.Raw)
+                        episode_label[label_key] = control_dict
+
+                        # Data Augmentation
+                        img = Image.open(filename)
+                        translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
+                        control_dict['steer'] = translated_steering_angle
+
+                        augmented_filename = f'{parent_dir}/{label_key}_augmented.png'
+                        translated_img.save(augmented_filename)
+                        episode_label[f'{label_key}_augmented'] = control_dict
 
                 # Save episode label dict.
                 with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
                     pickle.dump(episode_label, f, pickle.HIGHEST_PROTOCOL)
 
                 # Move vehicle to another random spawn point for the next episode
-                vehicle.set_transform(random.choice(m.get_spawn_points()))
+                vehicle.set_simulate_physics(False)
+                spawn_index += 1
+                vehicle.set_transform(spawn_point[good_spawn_indices[spawn_index]])
+                vehicle.set_simulate_physics(True)
 
         # Split episodes into train and val sets
-        split_data(f'data/{current_datetime}', args.episodes, args.split_ratio)
+        split_data(parent_dir, args.episodes, args.split_ratio)
     finally:
         print('destroying actors.')
         for actor in actor_list:

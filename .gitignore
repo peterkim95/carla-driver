@@ -4,6 +4,7 @@
 # Carla python client artifacts
 _benchmarks_results/
 _out/
+cache/
 
 # Profile dump
 prof/

@@ -86,6 +86,8 @@ import random
 import re
 import weakref
 
+from l5 import L5Agent
+
 try:
     import pygame
     from pygame.locals import KMOD_CTRL
@@ -158,6 +160,7 @@ class World(object):
     def __init__(self, carla_world, hud, args):
         self.world = carla_world
         self.actor_role_name = args.rolename
+        self.net_path = args.net_path
         try:
             self.map = self.world.get_map()
         except RuntimeError as error:
@@ -189,7 +192,8 @@ class World(object):
         cam_index = self.camera_manager.index if self.camera_manager is not None else 0
         cam_pos_index = self.camera_manager.transform_index if self.camera_manager is not None else 0
         # Get a random blueprint.
-        blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
+        # blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
+        blueprint = self.world.get_blueprint_library().find('vehicle.tesla.model3')
         blueprint.set_attribute('role_name', self.actor_role_name)
         if blueprint.has_attribute('color'):
             color = random.choice(blueprint.get_attribute('color').recommended_values)
@@ -226,6 +230,7 @@ class World(object):
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
+        self.agent_sensor = AgentSensor(self.net_path, self.player, autopilot_enabled=False)
         self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
@@ -252,6 +257,8 @@ class World(object):
     def render(self, display):
         self.camera_manager.render(display)
         self.hud.render(display)
+        # NOTE: order matters!
+        self.agent_sensor.render(display)
 
     def destroy_sensors(self):
         self.camera_manager.sensor.destroy()
@@ -381,9 +388,11 @@ class KeyboardControl(object):
                         self._control.gear = self._control.gear + 1
                     elif event.key == K_p and not pygame.key.get_mods() & KMOD_CTRL:
                         self._autopilot_enabled = not self._autopilot_enabled
-                        world.player.set_autopilot(self._autopilot_enabled)
+                        # NOTE: carla's given autopilot
+                        # world.player.set_autopilot(self._autopilot_enabled)
                         world.hud.notification(
                             'Autopilot %s' % ('On' if self._autopilot_enabled else 'Off'))
+                        world.agent_sensor.toggle_autopilot()
                     elif event.key == K_l and pygame.key.get_mods() & KMOD_CTRL:
                         current_lights ^= carla.VehicleLightState.Special1
                     elif event.key == K_l and pygame.key.get_mods() & KMOD_SHIFT:
@@ -431,6 +440,12 @@ class KeyboardControl(object):
             elif isinstance(self._control, carla.WalkerControl):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time(), world)
             world.player.apply_control(self._control)
+        else:
+            # Get my autopilot control
+            pass
+            # print('keyboard')
+            # autopilot_control, heatmap = world.agent.run_step(None, sensor_data, None, None)  
+            # world.player.apply_control(autopilot_control)
 
     def _parse_vehicle_keys(self, keys, milliseconds):
         self._control.throttle = 1.0 if keys[K_UP] or keys[K_w] else 0.0
@@ -671,6 +686,51 @@ class HelpText(object):
         if self._render:
             display.blit(self.surface, self.pos)
 
+# ==============================================================================
+# -- AgentSensor -----------------------------------------------------------
+# ==============================================================================
+
+class AgentSensor(object):
+    def __init__(self, net_path, parent_actor, autopilot_enabled):
+        self._parent = parent_actor
+        world = self._parent.get_world()
+        blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
+        self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.6, z=1.7)), attach_to=self._parent, attachment_type=carla.AttachmentType.Rigid)
+        self.autopilot_enabled = autopilot_enabled
+        self.surface = None
+        self.agent = L5Agent(net_path)
+        # We need to pass the lambda a weak reference to self to avoid circular
+        # reference.
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda image: AgentSensor._parse_image(weak_self, image))
+
+    def toggle_autopilot(self):
+        self.autopilot_enabled = not self.autopilot_enabled
+
+    def render(self, display):
+        if self.autopilot_enabled and self.surface is not None:
+            display.blit(self.surface, (0,0))
+
+    @staticmethod
+    def _parse_image(weak_self, image):
+        self = weak_self()
+        if not self:
+            return
+        if self.autopilot_enabled:
+            # image.save_to_disk(f'_out/{image.frame}.png')
+            image.convert(carla.ColorConverter.Raw)
+            array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+            array = np.reshape(array, (image.height, image.width, 4))
+            array = array[:, :, :3]
+            array = array[:, :, ::-1] # (600, 800, 3)
+            sensor_data = {'CenterRGB': array}
+
+            autopilot_control, heatmap = self.agent.run_step(None, sensor_data, None, None)
+
+            self._parent.apply_control(autopilot_control)
+
+            array = np.asarray(heatmap.convert('RGB')) # (66, 200, 3)
+            self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
@@ -886,24 +946,12 @@ class CameraManager(object):
         self._camera_transforms = [
             (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
-            (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+        ]
         self.transform_index = 1
         self.sensors = [
-            ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
-            ['sensor.camera.depth', cc.Raw, 'Camera Depth (Raw)', {}],
-            ['sensor.camera.depth', cc.Depth, 'Camera Depth (Gray Scale)', {}],
-            ['sensor.camera.depth', cc.LogarithmicDepth, 'Camera Depth (Logarithmic Gray Scale)', {}],
-            ['sensor.camera.semantic_segmentation', cc.Raw, 'Camera Semantic Segmentation (Raw)', {}],
-            ['sensor.camera.semantic_segmentation', cc.CityScapesPalette,
-                'Camera Semantic Segmentation (CityScapes Palette)', {}],
-            ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)', {}],
-            ['sensor.camera.rgb', cc.Raw, 'Camera RGB Distorted',
-                {'lens_circle_multiplier': '3.0',
-                'lens_circle_falloff': '3.0',
-                'chromatic_aberration_intensity': '0.5',
-                'chromatic_aberration_offset': '0'}]]
+            ['sensor.camera.rgb', cc.Raw, '3rd Person Camera RGB', {}],
+            ['sensor.camera.rgb', cc.Raw, 'Center Camera RGB', {}],
+        ]
         world = self._parent.get_world()
         bp_library = world.get_blueprint_library()
         for item in self.sensors:
@@ -1071,6 +1119,9 @@ def main():
         default='hero',
         help='actor role name (default: "hero")')
     argparser.add_argument(
+        '--net_path',
+        help='path to weights of neural net')
+    argparser.add_argument(
         '--gamma',
         default=2.2,
         type=float,
@@ -1095,5 +1146,4 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()

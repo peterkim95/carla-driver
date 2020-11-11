@@ -3,14 +3,17 @@ from PIL import Image
 import numpy as np
 from matplotlib import cm
 
-from carla.agent.agent import Agent
-from carla.client import VehicleControl
+# TODO: update agent def - new carla version has different agent interface?
+# from carla.agent.agent import Agent
+# from carla.client import VehicleControl
+from carla import VehicleControl
 
 from pilotnet import PilotNet, get_transform, get_truncated_transform
 
-class L5Agent(Agent):
+# class L5Agent(Agent):
+class L5Agent:
     def __init__(self, net_path):
-        super().__init__()
+        # super().__init__()
         self.pilotnet = PilotNet()
         self.pilotnet.load_state_dict(torch.load(net_path))
         print(f'{net_path} load success')
@@ -36,7 +39,7 @@ class L5Agent(Agent):
         return control, heatmap
 
     def get_heatmap(self, sensor_data):
-        rgb_array = sensor_data['MainCameraRGB'].data.copy()
+        rgb_array = sensor_data['CenterRGB'].copy()
         image = Image.fromarray(rgb_array)
         transform = get_truncated_transform()
         input_image = transform(image)
@@ -62,7 +65,7 @@ class L5Agent(Agent):
         return Image.alpha_composite(input_image, mask_image)
 
     def predict_control(self, sensor_data):
-        rgb_array = sensor_data['MainCameraRGB'].data.copy()
+        rgb_array = sensor_data['CenterRGB'].copy()
         # numpy shape should be (H x W x C) in range [0,255] with dtype=np.uint8
 
         image = Image.fromarray(rgb_array)
@@ -75,6 +78,6 @@ class L5Agent(Agent):
         predicted_steer = y.item()
 
         control = VehicleControl()
-        control.throttle = 0.3
+        control.throttle = 0.5
         control.steer = predicted_steer
         return control
