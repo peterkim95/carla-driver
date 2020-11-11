@@ -257,6 +257,8 @@ class World(object):
     def render(self, display):
         self.camera_manager.render(display)
         self.hud.render(display)
+        # NOTE: order matters!
+        self.agent_sensor.render(display)
 
     def destroy_sensors(self):
         self.camera_manager.sensor.destroy()
@@ -695,7 +697,7 @@ class AgentSensor(object):
         blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
         self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.6, z=1.7)), attach_to=self._parent, attachment_type=carla.AttachmentType.Rigid)
         self.autopilot_enabled = autopilot_enabled
-        self._visual_backprop = None
+        self.surface = None
         self.agent = L5Agent(net_path)
         # We need to pass the lambda a weak reference to self to avoid circular
         # reference.
@@ -705,9 +707,9 @@ class AgentSensor(object):
     def toggle_autopilot(self):
         self.autopilot_enabled = not self.autopilot_enabled
 
-    # def render(self, display):
-    #     if self.autopilot_enabled:
-    #         display.blit(self.surface, self.pos)
+    def render(self, display):
+        if self.autopilot_enabled and self.surface is not None:
+            display.blit(self.surface, (0,0))
 
     @staticmethod
     def _parse_image(weak_self, image):
@@ -724,8 +726,11 @@ class AgentSensor(object):
             sensor_data = {'CenterRGB': array}
 
             autopilot_control, heatmap = self.agent.run_step(None, sensor_data, None, None)
-            self.visual_backprop = heatmap
+
             self._parent.apply_control(autopilot_control)
+
+            array = np.asarray(heatmap.convert('RGB')) # (66, 200, 3)
+            self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
