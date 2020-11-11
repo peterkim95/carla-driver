@@ -39,7 +39,7 @@ class L5Agent:
         return control, heatmap
 
     def get_heatmap(self, sensor_data):
-        rgb_array = sensor_data['CenterRGB'].data.copy()
+        rgb_array = sensor_data['CenterRGB'].copy()
         image = Image.fromarray(rgb_array)
         transform = get_truncated_transform()
         input_image = transform(image)
@@ -65,7 +65,7 @@ class L5Agent:
         return Image.alpha_composite(input_image, mask_image)
 
     def predict_control(self, sensor_data):
-        rgb_array = sensor_data['CenterRGB'].data.copy()
+        rgb_array = sensor_data['CenterRGB'].copy()
         # numpy shape should be (H x W x C) in range [0,255] with dtype=np.uint8
 
         image = Image.fromarray(rgb_array)

@@ -160,6 +160,7 @@ class World(object):
     def __init__(self, carla_world, hud, args):
         self.world = carla_world
         self.actor_role_name = args.rolename
+        self.net_path = args.net_path
         try:
             self.map = self.world.get_map()
         except RuntimeError as error:
@@ -183,8 +184,6 @@ class World(object):
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
-
-        self.agent = L5Agent(args.net_path)
 
     def restart(self):
         self.player_max_speed = 1.589
@@ -231,7 +230,7 @@ class World(object):
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
-        self.agent_sensor = AgentSensor(self.player, autopilot_enabled=False)
+        self.agent_sensor = AgentSensor(self.net_path, self.player, autopilot_enabled=False)
         self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
@@ -690,13 +689,14 @@ class HelpText(object):
 # ==============================================================================
 
 class AgentSensor(object):
-    def __init__(self, parent_actor, autopilot_enabled):
+    def __init__(self, net_path, parent_actor, autopilot_enabled):
         self._parent = parent_actor
         world = self._parent.get_world()
         blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
         self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.6, z=1.7)), attach_to=self._parent, attachment_type=carla.AttachmentType.Rigid)
         self.autopilot_enabled = autopilot_enabled
         self._visual_backprop = None
+        self.agent = L5Agent(net_path)
         # We need to pass the lambda a weak reference to self to avoid circular
         # reference.
         weak_self = weakref.ref(self)
@@ -718,18 +718,14 @@ class AgentSensor(object):
             # image.save_to_disk(f'_out/{image.frame}.png')
             image.convert(carla.ColorConverter.Raw)
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
-            print(array.shape)
             array = np.reshape(array, (image.height, image.width, 4))
-            print(array.shape)
             array = array[:, :, :3]
-            print(array.shape)
-            array = array[:, :, ::-1]
-            print(array.shape)
-            print('-'*50)
+            array = array[:, :, ::-1] # (600, 800, 3)
             sensor_data = {'CenterRGB': array}
-            # autopilot_control, heatmap = self._parent.get_world().agent.run_step(None, sensor_data, None, None)
-            # self.visual_backprop = heatmap
-            # self._parent.get_world().player.apply_control(autopilot_control)
+
+            autopilot_control, heatmap = self.agent.run_step(None, sensor_data, None, None)
+            self.visual_backprop = heatmap
+            self._parent.apply_control(autopilot_control)
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
