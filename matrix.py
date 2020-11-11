@@ -696,6 +696,7 @@ class AgentSensor(object):
         blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
         self.sensor = world.spawn_actor(blueprint, carla.Transform(carla.Location(x=1.6, z=1.7)), attach_to=self._parent, attachment_type=carla.AttachmentType.Rigid)
         self.autopilot_enabled = autopilot_enabled
+        self._visual_backprop = None
         # We need to pass the lambda a weak reference to self to avoid circular
         # reference.
         weak_self = weakref.ref(self)
@@ -704,13 +705,31 @@ class AgentSensor(object):
     def toggle_autopilot(self):
         self.autopilot_enabled = not self.autopilot_enabled
 
+    # def render(self, display):
+    #     if self.autopilot_enabled:
+    #         display.blit(self.surface, self.pos)
+
     @staticmethod
     def _parse_image(weak_self, image):
         self = weak_self()
         if not self:
             return
         if self.autopilot_enabled:
-            image.save_to_disk(f'_out/{image.frame}.png')
+            # image.save_to_disk(f'_out/{image.frame}.png')
+            image.convert(carla.ColorConverter.Raw)
+            array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+            print(array.shape)
+            array = np.reshape(array, (image.height, image.width, 4))
+            print(array.shape)
+            array = array[:, :, :3]
+            print(array.shape)
+            array = array[:, :, ::-1]
+            print(array.shape)
+            print('-'*50)
+            sensor_data = {'CenterRGB': array}
+            # autopilot_control, heatmap = self._parent.get_world().agent.run_step(None, sensor_data, None, None)
+            # self.visual_backprop = heatmap
+            # self._parent.get_world().player.apply_control(autopilot_control)
 
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
