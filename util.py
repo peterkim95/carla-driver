@@ -1,11 +1,11 @@
 import os
 import shutil
-import numpy as np
 import errno
 from argparse import ArgumentParser
 from datetime import datetime
 
 import torch
+import numpy as np
 
 def get_current_datetime():
     return datetime.now().strftime('%Y-%m-%d--%H-%M-%S')

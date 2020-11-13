@@ -125,7 +125,9 @@ def main():
     try:
         m = world.get_map()
         spawn_point = m.get_spawn_points()
-        good_spawn_indices = [224, 186, 320, 321, 220, 221, 273, 307, 298, 338, 308, 343, 342, 230]
+        # good_spawn_indices = [224, 186, 320, 321, 220, 221, 273, 307, 298, 338, 308, 343, 342, 230] # curves
+        # good_spawn_indices = [348, 223, 227, 370, 366, 328] # dotted lanes
+        good_spawn_indices = list(range(100)) # just random
         spawn_index = 0
         random.shuffle(good_spawn_indices)
 
@@ -218,9 +220,12 @@ def main():
                 spawn_index += 1
                 vehicle.set_transform(spawn_point[good_spawn_indices[spawn_index]])
                 vehicle.set_simulate_physics(True)
+        print('data collection finished')
 
         # Split episodes into train and val sets
         split_data(parent_dir, args.episodes, args.split_ratio)
+
+        print('split train/val')
     finally:
         print('destroying actors.')
         for actor in actor_list:
