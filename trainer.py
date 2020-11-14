@@ -22,8 +22,12 @@ def main():
     # Define transformations
     transform = get_transform()
 
+    # Manually set train and val sets
+    trains = ['2020-11-14--10-34-12']
+    vals = ['2020-11-14--10-37-35']
+
     # Set data generators
-    train_set = DrivingDataset(args.train, transform=transform)
+    train_set = DrivingDataset(trains, transform=transform)
     train_loader = torch.utils.data.DataLoader(
         train_set, 
         batch_size=args.batch_size, 
@@ -32,7 +36,7 @@ def main():
         pin_memory=True # TODO: understand it more
     )
 
-    val_set = DrivingDataset(args.val, transform=transform)
+    val_set = DrivingDataset(vals, transform=transform)
     val_loader = torch.utils.data.DataLoader(
         val_set, 
         batch_size=args.batch_size, 

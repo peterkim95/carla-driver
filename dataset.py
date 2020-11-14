@@ -3,7 +3,6 @@ import glob
 from collections import ChainMap
 import pickle
 
-import numpy as np
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -11,15 +10,18 @@ from PIL import Image
 
 
 class DrivingDataset(Dataset):
-    def __init__(self, data_path, transform=None):
-        self.data_path = data_path
-        imgs = glob.glob(f'{data_path}/*/*/*.png') # e.g. data_path/episode_x/RGBCenter/x.png
-        self.list_IDs = list(map(lambda s: s.replace(data_path, '').replace('.png', '')[1:], imgs))
+    def __init__(self, timestamps, transform=None):
+        self.data_path = 'data'
+        self.list_IDs = []
+        label_dicts = []
+        for ts in timestamps:
+            imgs = glob.glob(f'data/{ts}/*/*/*.png') # e.g. data_path/episode_x/RGBCenter/x.png
+            self.list_IDs += list(map(lambda s: s.replace(self.data_path, '').replace('.png', '')[1:], imgs))
 
-        labels = glob.glob(f'{data_path}/*/*.pickle')
-        label_dicts = list(map(lambda s: pickle.load(open(s, 'rb')), labels))
+            labels = glob.glob(f'data/{ts}/*/*.pickle')
+            label_dicts += list(map(lambda s: pickle.load(open(s, 'rb')), labels))
+
         self.labels = dict(ChainMap(*label_dicts)) 
-
         self.transform = transform
 
     def __len__(self):
