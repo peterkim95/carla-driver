@@ -8,7 +8,13 @@ import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 
-# In[10]:
+# In[2]:
+
+
+sys.path.append("..") # ec2
+
+
+# In[3]:
 
 
 import torch
@@ -21,23 +27,43 @@ import torchvision.transforms as transforms
 import torch.nn.functional as F
 
 
-# In[3]:
+# In[9]:
 
 
-im = Image.open('../data/2020-10-29--14-46-09/train/episode_0000/CenterRGB/000140.png')
+im = Image.open('../data/2020-11-06--00-54-17/train/episode_0002/CenterRGB/000140.png')
 im
 
 
-# In[4]:
+# In[12]:
 
 
 t = get_transform()
 
 
-# In[11]:
+# In[10]:
 
 
 tt = get_truncated_transform()
+
+
+# In[24]:
+
+
+newt = transforms.Compose([
+    transforms.CenterCrop((400, 320)),
+])
+
+
+# In[25]:
+
+
+newt(im)
+
+
+# In[11]:
+
+
+tt(im)
 
 
 # In[14]:
@@ -59,7 +85,7 @@ print(oim)
 print(im)
 
 
-# In[5]:
+# In[13]:
 
 
 t(im)

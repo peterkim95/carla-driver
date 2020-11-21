@@ -39,7 +39,7 @@ from dataset import DrivingDataset
 # In[5]:
 
 
-data_path = '2020-10-04_06:22:49'
+data_path = '2020-11-06--00-54-17'
 
 
 # In[6]:
@@ -48,37 +48,37 @@ data_path = '2020-10-04_06:22:49'
 train_path, val_path = f'../data/{data_path}/train', f'../data/{data_path}/val'
 
 
-# In[12]:
+# In[7]:
 
 
 train_set, val_set = DrivingDataset(train_path), DrivingDataset(val_path)
 
 
-# In[ ]:
+# In[8]:
 
 
 train_set.labels
 
 
-# In[8]:
+# In[9]:
 
 
 label_df = pd.DataFrame.from_dict(train_set.labels, orient='index')
 
 
-# In[ ]:
+# In[10]:
 
 
 label_df['steer']
 
 
-# In[9]:
+# In[11]:
 
 
 max(label_df['steer']), min(label_df['steer'])
 
 
-# In[10]:
+# In[12]:
 
 
 sns.displot(label_df['steer'], bins=np.arange(-1, 1.001, 0.05))
