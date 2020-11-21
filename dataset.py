@@ -42,5 +42,12 @@ class DrivingDataset(Dataset):
 
     def preprocess_y(self, ID):
         y = self.labels[ID]
-        return torch.tensor([y['steer']])
+        return torch.tensor([y['steer'], sig_to_tanh(y['throttle']), sig_to_tanh(y['brake'])])
+
+
+def tanh_to_sig(x):
+    return x
+
+def sig_to_tanh(x):
+    return x
 

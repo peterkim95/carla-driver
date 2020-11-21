@@ -21,6 +21,7 @@ class PilotNet(nn.Module):
         self.fc3 = nn.Linear(100, 50)
         self.fc4 = nn.Linear(50, 10)
         self.fc5 = nn.Linear(10, 1)
+        self.fc6 = nn.Linear(10, 3) # steering, accel, brake
 
         self.dconv1 = nn.ConvTranspose2d(1, 1, 3, stride=1, bias=False)
         self.dconv1.weight.data = torch.ones((1,1,3,3)) # TODO: make sure they are not learned!
@@ -69,7 +70,8 @@ class PilotNet(nn.Module):
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = F.relu(self.fc4(x))
-        x = torch.tanh(self.fc5(x))
+        # x = torch.tanh(self.fc5(x))
+        x = torch.tanh(self.fc6(x))
         return x
 
 def get_truncated_transform():
