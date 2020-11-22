@@ -46,8 +46,10 @@ class DrivingDataset(Dataset):
 
 
 def tanh_to_sig(x):
-    return x
+    y = (x - (-1)) * (1 - 0) / (1 - (-1)) + 0
+    return y
 
 def sig_to_tanh(x):
-    return x
+    y = ((x - 0) * (1 - (-1)) / (1 - 0)) + (-1)
+    return y
 
