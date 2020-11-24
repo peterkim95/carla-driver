@@ -8,6 +8,7 @@ from matplotlib import cm
 # from carla.client import VehicleControl
 from carla import VehicleControl
 
+from dataset import tanh_to_sig
 from pilotnet import PilotNet, get_transform, get_truncated_transform
 
 # class L5Agent(Agent):
@@ -75,9 +76,15 @@ class L5Agent:
         x = transform(image)
         with torch.no_grad(): # reduce mem usage and speed up computation
             y = self.pilotnet(x.unsqueeze(0)) # TODO: Ew. Do I have to add a batch dimension?
-        predicted_steer = y.item()
+
+        y = y.squeeze()
+        predicted_steer = y[0].item()
+        predicted_throttle = tanh_to_sig(y[1].item())
+        predicted_brake = tanh_to_sig(y[2].item())
 
         control = VehicleControl()
-        control.throttle = 0.5
         control.steer = predicted_steer
+        control.throttle = predicted_throttle
+        # control.brake = predicted_brake
+
         return control

@@ -116,8 +116,11 @@ def main():
     client.set_timeout(2.0)
 
     world = client.get_world()
+
     world = client.load_world(args.map)
+    print(f'Loaded map: {args.map}')
     world.set_weather(carla.WeatherParameters.ClearNoon)
+    print(world.get_weather())
 
     # Get current datetime for versioning
     current_datetime = get_current_datetime()

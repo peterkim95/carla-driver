@@ -196,7 +196,8 @@ class World(object):
         blueprint = self.world.get_blueprint_library().find('vehicle.tesla.model3')
         blueprint.set_attribute('role_name', self.actor_role_name)
         if blueprint.has_attribute('color'):
-            color = random.choice(blueprint.get_attribute('color').recommended_values)
+            # color = random.choice(blueprint.get_attribute('color').recommended_values)
+            color = '180,44,44'
             blueprint.set_attribute('color', color)
         if blueprint.has_attribute('driver_id'):
             driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
