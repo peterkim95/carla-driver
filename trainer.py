@@ -23,8 +23,8 @@ def main():
     transform = get_transform()
 
     # Manually set train and val sets
-    trains = ['2020-11-21--15-06-11', '2020-11-22--11-34-42']
-    vals = ['2020-11-22--04-37-12']
+    trains = ['2020-11-21--15-06-11', '2020-11-22--04-37-12']
+    vals = ['2020-11-22--11-34-42']
 
     # Set data generators
     train_set = DrivingDataset(trains, transform=transform)

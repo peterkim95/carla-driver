@@ -10,15 +10,15 @@ from PIL import Image
 
 
 class DrivingDataset(Dataset):
-    def __init__(self, timestamps, transform=None):
-        self.data_path = 'data'
+    def __init__(self, timestamps, data_path='data', transform=None):
+        self.data_path = data_path
         self.list_IDs = []
         label_dicts = []
         for ts in timestamps:
-            imgs = glob.glob(f'data/{ts}/*/*/*.png') # e.g. data_path/episode_x/RGBCenter/x.png
+            imgs = glob.glob(f'{self.data_path}/{ts}/*/*/*.png') # e.g. data_path/episode_x/RGBCenter/x.png
             self.list_IDs += list(map(lambda s: s.replace(self.data_path, '').replace('.png', '')[1:], imgs))
 
-            labels = glob.glob(f'data/{ts}/*/*.pickle')
+            labels = glob.glob(f'{self.data_path}/{ts}/*/*.pickle')
             label_dicts += list(map(lambda s: pickle.load(open(s, 'rb')), labels))
 
         self.labels = dict(ChainMap(*label_dicts)) 

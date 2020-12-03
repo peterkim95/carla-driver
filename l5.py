@@ -84,7 +84,8 @@ class L5Agent:
 
         control = VehicleControl()
         control.steer = predicted_steer
-        control.throttle = predicted_throttle
+        control.throttle = 0.4
+        # control.throttle = predicted_throttle
         # control.brake = predicted_brake
 
         return control

@@ -108,6 +108,11 @@ def main():
         default=100,
         type=int,
         help='# of frames')
+    argparser.add_argument(
+        '-a', '--augment',
+        action='store_true',
+        help='enable data augmentation')
+    
     args =  argparser.parse_args()
 
     actor_list = []
@@ -137,8 +142,8 @@ def main():
     blueprint_library = world.get_blueprint_library()
 
     bp = blueprint_library.find('vehicle.tesla.model3')
-    # vehicle_transform = random.choice(m.get_spawn_points())
-    vehicle_transform = spawn_point[good_spawn_indices[spawn_index]]
+    vehicle_transform = random.choice(m.get_spawn_points())
+    # vehicle_transform = spawn_point[good_spawn_indices[spawn_index]]
 
     # Spawn test vehicle at start pose
     vehicle = world.spawn_actor(bp, vehicle_transform)
@@ -172,12 +177,14 @@ def main():
     
     # Init sensor list
     sensor_name = ['CenterRGB', 'LeftRGB', 'RightRGB']
+    # sensor_name = ['CenterRGB']
 
     # Set data parent folder
     parent_dir = f'data'
 
     # Create a synchronous mode context.
     with CarlaSyncMode(world, center_rgb, left_rgb, right_rgb, fps=10) as sync_mode:
+    # with CarlaSyncMode(world, center_rgb, fps=10) as sync_mode:
         for e in range(args.episodes):
             print(f'Episode {e}')
 
@@ -198,6 +205,7 @@ def main():
                 left_control_dict = generate_control_dict(vehicle.get_control(), steer=0.25) 
                 right_control_dict = generate_control_dict(vehicle.get_control(), steer=-0.25)
                 control_data = [center_control_dict, left_control_dict, right_control_dict]
+                # control_data = [center_control_dict]
 
                 for name, control_dict, img_data in zip(sensor_name, control_data, sensor_data[1:]):
                     label_key = f'{current_datetime}/{episode_dir}/{name}/{f:06d}'
@@ -207,13 +215,14 @@ def main():
                     episode_label[label_key] = control_dict
 
                     # Data Augmentation
-                    img = Image.open(filename)
-                    translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
-                    control_dict['steer'] = translated_steering_angle
+                    if args.augment:
+                        img = Image.open(filename)
+                        translated_img, translated_steering_angle = translate_img(img, control_dict['steer'], 100, 0)
+                        control_dict['steer'] = translated_steering_angle
 
-                    augmented_filename = f'{parent_dir}/{label_key}_augmented.png'
-                    translated_img.save(augmented_filename)
-                    episode_label[f'{label_key}_augmented'] = control_dict
+                        augmented_filename = f'{parent_dir}/{label_key}_augmented.png'
+                        translated_img.save(augmented_filename)
+                        episode_label[f'{label_key}_augmented'] = control_dict
 
             # Save episode label dict.
             with open(f'data/{current_datetime}/episode_{e:0>4d}/label.pickle', 'wb') as f:
@@ -222,7 +231,9 @@ def main():
             # Move vehicle to another random spawn point for the next episode
             vehicle.set_simulate_physics(False)
             spawn_index += 1
-            vehicle.set_transform(spawn_point[good_spawn_indices[spawn_index]])
+            # vehicle.set_transform(spawn_point[good_spawn_indices[spawn_index]])
+            vehicle_transform = random.choice(m.get_spawn_points())
+            vehicle.set_transform(vehicle_transform)
             vehicle.set_simulate_physics(True)
     print('data collection finished')
 

@@ -102,6 +102,30 @@ max(label_df['steer']), min(label_df['steer'])
 sns.displot(label_df['steer'], bins=np.arange(-1, 1.001, 0.05))
 
 
+# In[5]:
+
+
+trains = ['2020-11-21--15-06-11']
+
+
+# In[6]:
+
+
+train_set = DrivingDataset(trains, data_path='../data')
+
+
+# In[7]:
+
+
+label_df = pd.DataFrame.from_dict(train_set.labels, orient='index')
+
+
+# In[8]:
+
+
+sns.displot(label_df['steer'], bins=np.arange(-1, 1.001, 0.05))
+
+
 # In[ ]:
 
 
